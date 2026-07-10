@@ -200,17 +200,22 @@ def analyze_liquid_texture_name(name):
 
 def scan_workspace_bmps(folder):
     """
-    Scans workspace for BMP images and evaluates eligibility parameters.
-    Checks resolution boundaries and validates name patterns.
+    Scans workspace for compatible image files (BMP, PNG, TGA, PCX) and
+    evaluates eligibility for texture packing. Checks resolution boundaries
+    and validates name patterns.
     """
+    SUPPORTED_EXTENSIONS = ('.bmp', '.png', '.tga', '.pcx')
+
     if not os.path.exists(folder):
         raise FileNotFoundError(f"Target folder configuration mapping invalid: '{folder}'")
-        
+
     detected = []
     warnings = []
     seen_texnames = {}
-    
-    files = [f for f in os.listdir(folder) if f.lower().endswith('.bmp')]
+
+    files = [f for f in os.listdir(folder)
+             if f.lower().endswith(SUPPORTED_EXTENSIONS)
+             and not f.startswith('.')]
     
     for fname in files:
         fpath = os.path.join(folder, fname)
@@ -339,9 +344,10 @@ def read_wad_contents(wad_path):
     return wad_format_str, entries_list
 
 def rename_workspace_file(folder, old_name, new_name):
-    """Renames an image file inside the target workspace directory safely."""
-    if not new_name.lower().endswith('.bmp'):
-        new_name += '.bmp'
+    """Renames an image file inside the target workspace directory, preserving its extension."""
+    old_ext = os.path.splitext(old_name)[1]
+    if not new_name.lower().endswith(old_ext):
+        new_name += old_ext
     old_path = os.path.join(folder, old_name)
     new_path = os.path.join(folder, new_name)
     if not os.path.exists(old_path):
