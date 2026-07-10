@@ -468,17 +468,23 @@ def convert_wad_format_file(wad_path, current_format, target_format):
 def compile_bmp_to_miptex(bmp_path, name, wad_format):
     """
     Compiles an external file asset into a full 4-level mipmapped binary Miptex structure.
-    Packs color indices and embeds palette profiles to standard game specifications.
+    For WAD2: remaps colours to the Quake hardware palette so indices match at runtime.
+    For WAD3: preserves custom palettes which get embedded directly in the lump.
     """
     with Image.open(bmp_path) as img:
         w, h = img.size
-        
-        # Ensure optimal 8-bit color index quantization mappings safely
-        if img.mode == 'P':
+
+        if wad_format == "WAD2":
+            palette_img = Image.new('P', (1, 1))
+            palette_img.putpalette(QUAKE_PALETTE)
+            if img.mode != 'RGB':
+                img = img.convert('RGB')
+            img_p = img.quantize(palette=palette_img)
+        elif img.mode == 'P':
             img_p = img
         else:
             img_p = img.convert("P", palette=Image.Palette.ADAPTIVE, colors=256)
-            
+
         raw_indices = list(img_p.getdata())
         palette_bytes = img_p.getpalette()
         
