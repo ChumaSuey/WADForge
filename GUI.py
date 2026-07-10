@@ -46,6 +46,10 @@ class WadPackerApp:
         self.current_preview_source = None
         self.current_preview_name = None
         self.updating_selection = False
+        self.zoom_level = 1.0
+        self.zoom_fit_enabled = True
+        self.canvas_image_id = None
+        self._checkerboard_cache = None
         
         # Set Up Styles
         self.setup_styles()
@@ -322,62 +326,117 @@ class WadPackerApp:
         preview_title = ttk.Label(preview_header, text="Texture Preview", style="Header.TLabel")
         preview_title.pack(side=tk.LEFT, pady=5)
         
-        # Preview Area Frame
+        # Preview canvas with checkerboard background
         self.preview_frame = ttk.Frame(preview_panel, style="Card.TFrame")
-        self.preview_frame.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
-        self.preview_frame.bind("<Configure>", self.on_preview_frame_resize)
+        self.preview_frame.pack(fill=tk.BOTH, expand=True, padx=5, pady=(5, 0))
         
-        # Canvas or Label to hold the preview image
-        self.preview_img_lbl = ttk.Label(self.preview_frame, text="No Selection", anchor="center", background="#11111b")
-        self.preview_img_lbl.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
+        self.preview_canvas = tk.Canvas(
+            self.preview_frame, bg="#181825", highlightthickness=0,
+            bd=0, cursor="crosshair"
+        )
+        self.preview_canvas.pack(fill=tk.BOTH, expand=True, padx=1, pady=1)
+        self.preview_canvas.bind("<Configure>", self.on_preview_frame_resize)
+        self.preview_canvas.bind("<Motion>", self.on_preview_motion)
+        
+        self._canvas_placeholder = self.preview_canvas.create_text(
+            200, 100, text="Select an image\nto preview",
+            fill=self.colors["subtext"],
+            font=("Segoe UI", 10),
+            anchor="center",
+            tags=("placeholder",)
+        )
+        
+        # Zoom controls
+        zoom_frame = ttk.Frame(preview_panel, style="Card.TFrame")
+        zoom_frame.pack(fill=tk.X, padx=5, pady=(2, 0))
+        
+        self.zoom_out_btn = ttk.Button(zoom_frame, text="−", width=3,
+                                        command=self.zoom_out, state=tk.DISABLED)
+        self.zoom_out_btn.pack(side=tk.LEFT, padx=1)
+        
+        self.zoom_label = ttk.Label(zoom_frame, text="Fit", style="Card.TLabel",
+                                     width=5, anchor="center")
+        self.zoom_label.pack(side=tk.LEFT, padx=1)
+        
+        self.zoom_in_btn = ttk.Button(zoom_frame, text="+", width=3,
+                                       command=self.zoom_in, state=tk.DISABLED)
+        self.zoom_in_btn.pack(side=tk.LEFT, padx=1)
+        
+        self.zoom_fit_btn = ttk.Button(zoom_frame, text="1:1", width=3,
+                                        command=self.zoom_1to1, state=tk.DISABLED)
+        self.zoom_fit_btn.pack(side=tk.LEFT, padx=1)
+        
+        self.pixel_info_lbl = ttk.Label(zoom_frame, text="", style="Card.TLabel",
+                                         font=("Segoe UI", 8))
+        self.pixel_info_lbl.pack(side=tk.RIGHT, padx=5)
         
         # Metadata Frame
         meta_frame = ttk.Frame(preview_panel, style="Card.TFrame")
-        meta_frame.pack(fill=tk.X, padx=5, pady=5)
+        meta_frame.pack(fill=tk.X, padx=5, pady=(5, 0))
         
         self.meta_name_lbl = ttk.Label(meta_frame, text="Name: -", font=("Segoe UI", 9, "bold"), style="Card.TLabel")
-        self.meta_name_lbl.pack(anchor="w", padx=5, pady=2)
+        self.meta_name_lbl.pack(anchor="w", padx=5, pady=1)
         
         self.meta_res_lbl = ttk.Label(meta_frame, text="Resolution: -", style="Card.TLabel")
-        self.meta_res_lbl.pack(anchor="w", padx=5, pady=2)
+        self.meta_res_lbl.pack(anchor="w", padx=5, pady=1)
         
         self.meta_src_lbl = ttk.Label(meta_frame, text="Source: -", style="Card.TLabel")
-        self.meta_src_lbl.pack(anchor="w", padx=5, pady=2)
+        self.meta_src_lbl.pack(anchor="w", padx=5, pady=1)
         
         self.meta_info_lbl = ttk.Label(meta_frame, text="Format: -", style="Card.TLabel")
-        self.meta_info_lbl.pack(anchor="w", padx=5, pady=2)
+        self.meta_info_lbl.pack(anchor="w", padx=5, pady=1)
         
-        # Action Buttons Frame
+        # Action Buttons — restructured with clear context labels
         self.ops_frame = ttk.Frame(preview_panel, style="Card.TFrame")
-        self.ops_frame.pack(fill=tk.X, padx=5, pady=(5, 10))
+        self.ops_frame.pack(fill=tk.X, padx=5, pady=5)
         
-        btn_grid = ttk.Frame(self.ops_frame, style="Card.TFrame")
-        btn_grid.pack(fill=tk.X, expand=True)
+        self.source_context_label = ttk.Label(
+            self.ops_frame, text="Select an image to get started",
+            style="Card.TLabel", font=("Segoe UI", 8, "italic")
+        )
+        self.source_context_label.pack(anchor="w", padx=5, pady=(4, 2))
         
-        self.op_btn_rename = ttk.Button(btn_grid, text="Rename", command=self.on_op_rename)
-        self.op_btn_rename.grid(row=0, column=0, sticky="ew", padx=2, pady=2)
+        # Single button row — context-aware enabled/disabled
+        btn_frame = ttk.Frame(self.ops_frame, style="Card.TFrame")
+        btn_frame.pack(fill=tk.X, padx=2, pady=(0, 4))
         
-        self.op_btn_delete = ttk.Button(btn_grid, text="Delete", command=self.on_op_delete)
-        self.op_btn_delete.grid(row=0, column=1, sticky="ew", padx=2, pady=2)
+        self.op_btn_rename = ttk.Button(btn_frame, text="Rename", command=self.on_op_rename)
+        self.op_btn_rename.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=1)
         
-        self.op_btn_export = ttk.Button(btn_grid, text="Export Image", command=self.on_op_export)
-        self.op_btn_export.grid(row=1, column=0, sticky="ew", padx=2, pady=2)
+        self.op_btn_delete = ttk.Button(btn_frame, text="Delete", command=self.on_op_delete)
+        self.op_btn_delete.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=1)
         
-        self.op_btn_replace = ttk.Button(btn_grid, text="Replace...", command=self.on_op_replace)
-        self.op_btn_replace.grid(row=1, column=1, sticky="ew", padx=2, pady=2)
+        self.op_btn_export = ttk.Button(btn_frame, text="Export", command=self.on_op_export)
+        self.op_btn_export.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=1)
         
-        btn_grid.columnconfigure(0, weight=1)
-        btn_grid.columnconfigure(1, weight=1)
+        self.op_btn_replace = ttk.Button(btn_frame, text="Replace", command=self.on_op_replace)
+        self.op_btn_replace.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=1)
+        
+        self._disable_all_op_buttons()
 
         # ----------------- Actions Panel -----------------
-        act_panel = ttk.Frame(self.root)
+        act_panel = ttk.Frame(self.root, style="Card.TFrame")
         act_panel.pack(fill=tk.X, padx=15, pady=5)
-        
-        self.pack_btn = ttk.Button(act_panel, text="Pack Selected Textures", style="Primary.TButton", command=self.pack_textures)
-        self.pack_btn.pack(side=tk.LEFT, fill=tk.Y, ipady=5, padx=(0, 10))
-        
-        self.progress = ttk.Progressbar(act_panel, orient=tk.HORIZONTAL, mode='determinate')
-        self.progress.pack(side=tk.RIGHT, fill=tk.BOTH, expand=True, pady=3)
+
+        act_inner = ttk.Frame(act_panel, style="Card.TFrame")
+        act_inner.pack(fill=tk.X, padx=20, pady=10)
+
+        self.pack_status_lbl = ttk.Label(
+            act_inner, text="Select textures from the workspace to begin",
+            style="Card.TLabel", anchor="center", font=("Segoe UI", 9)
+        )
+        self.pack_status_lbl.pack(fill=tk.X, pady=(0, 6))
+
+        btn_container = ttk.Frame(act_inner, style="Card.TFrame")
+        btn_container.pack(fill=tk.X)
+        self.pack_btn = ttk.Button(
+            btn_container, text="Pack Selected Textures",
+            style="Primary.TButton", command=self.pack_textures
+        )
+        self.pack_btn.pack(expand=True, ipadx=30, ipady=6)
+
+        self.progress = ttk.Progressbar(act_inner, orient=tk.HORIZONTAL, mode='determinate')
+        self.progress.pack(fill=tk.X, pady=(8, 0))
 
         # ----------------- Console Log Pane -----------------
         log_panel = ttk.Frame(self.root, style="Card.TFrame", height=120)
@@ -587,6 +646,30 @@ class WadPackerApp:
         
         self.on_bmp_selection_changed()
 
+    def _update_pack_status(self):
+        valid = sum(1 for b in self.detected_bmps if b["valid"])
+        selected = len(self.tree_bmp.selection())
+        if selected > 0:
+            valid_in_sel = 0
+            for item in self.tree_bmp.selection():
+                vals = self.tree_bmp.item(item, "values")
+                if vals:
+                    for info in self.detected_bmps:
+                        if info["filename"] == vals[0] and info["valid"]:
+                            valid_in_sel += 1
+                            break
+            self.pack_status_lbl.config(
+                text=f"{valid_in_sel} valid of {selected} selected  —  ready to pack"
+            )
+        elif valid > 0:
+            self.pack_status_lbl.config(
+                text=f"{valid} valid textures available  —  select specific files or pack all"
+            )
+        else:
+            self.pack_status_lbl.config(
+                text="No valid textures found in the workspace"
+            )
+
     def refresh_wad(self):
         for item in self.tree_wad.get_children():
             self.tree_wad.delete(item)
@@ -619,6 +702,147 @@ class WadPackerApp:
             self.log(f"Error loading target WAD: {str(e)}", "error")
 
     # ----------------------------------------------------------------------
+    # Preview helpers
+    # ----------------------------------------------------------------------
+
+    def _disable_all_op_buttons(self):
+        for btn in (self.op_btn_rename, self.op_btn_delete,
+                     self.op_btn_export, self.op_btn_replace):
+            btn.config(state=tk.DISABLED)
+
+    def _update_op_context(self, source, count=1):
+        colors = self.colors
+        plural = "s" if count > 1 else ""
+
+        if source == "workspace":
+            self.source_context_label.config(
+                text=f"▸ Workspace File{plural} selected — Rename & Delete operate on disk",
+                foreground=colors["primary"]
+            )
+            self.op_btn_rename.config(state=tk.NORMAL)
+            self.op_btn_delete.config(state=tk.NORMAL)
+            self.op_btn_export.config(state=tk.DISABLED)
+            self.op_btn_replace.config(state=tk.DISABLED)
+        elif source == "workspace_bulk":
+            self.source_context_label.config(
+                text=f"▸ {count} Workspace Files selected — bulk delete only",
+                foreground=colors["primary"]
+            )
+            self.op_btn_rename.config(state=tk.DISABLED)
+            self.op_btn_delete.config(state=tk.NORMAL)
+            self.op_btn_export.config(state=tk.DISABLED)
+            self.op_btn_replace.config(state=tk.DISABLED)
+        elif source == "wad":
+            self.source_context_label.config(
+                text=f"▸ WAD Texture selected — operates inside the open WAD",
+                foreground=colors["accent"]
+            )
+            self.op_btn_rename.config(state=tk.NORMAL)
+            self.op_btn_delete.config(state=tk.NORMAL)
+            self.op_btn_export.config(state=tk.NORMAL)
+            self.op_btn_replace.config(state=tk.NORMAL)
+        elif source == "wad_bulk":
+            self.source_context_label.config(
+                text=f"▸ {count} WAD Textures selected — bulk export/delete inside WAD",
+                foreground=colors["accent"]
+            )
+            self.op_btn_rename.config(state=tk.DISABLED)
+            self.op_btn_delete.config(state=tk.NORMAL)
+            self.op_btn_export.config(state=tk.NORMAL)
+            self.op_btn_replace.config(state=tk.DISABLED)
+        else:
+            self.source_context_label.config(
+                text="Select an image to get started",
+                foreground=colors["subtext"]
+            )
+            self._disable_all_op_buttons()
+
+    def _make_checkerboard(self, w, h, cell=10):
+        key = (w, h, cell)
+        if self._checkerboard_cache and self._checkerboard_cache[0] == key:
+            return self._checkerboard_cache[1]
+
+        tile = Image.new("RGB", (cell * 2, cell * 2), (24, 24, 37))
+        light = (40, 40, 56)
+        for y in range(cell):
+            for x in range(cell):
+                tile.putpixel((cell + x, y), light)
+                tile.putpixel((x, cell + y), light)
+
+        cb = Image.new("RGB", (w, h))
+        for y in range(0, h, cell * 2):
+            for x in range(0, w, cell * 2):
+                cb.paste(tile, (x, y))
+        self._checkerboard_cache = (key, cb)
+        return cb
+
+    def on_preview_motion(self, event):
+        if not self.current_preview_image:
+            self.pixel_info_lbl.config(text="")
+            return
+        img = self.current_preview_image
+        cw = self.preview_canvas.winfo_width()
+        ch = self.preview_canvas.winfo_height()
+
+        if self.canvas_image_id:
+            coords = self.preview_canvas.coords(self.canvas_image_id)
+            if not coords:
+                self.pixel_info_lbl.config(text="")
+                return
+            cx, cy = coords
+            scaled_w = img.size[0] * self.zoom_level
+            scaled_h = img.size[1] * self.zoom_level
+            ix = event.x - cx + scaled_w // 2
+            iy = event.y - cy + scaled_h // 2
+            px = int(ix / self.zoom_level)
+            py = int(iy / self.zoom_level)
+
+            if 0 <= px < img.size[0] and 0 <= py < img.size[1]:
+                pixel = img.getpixel((px, py))
+                if isinstance(pixel, int):
+                    self.pixel_info_lbl.config(text=f"X:{px} Y:{py}  idx:{pixel}")
+                else:
+                    r, g, b = pixel[:3]
+                    self.pixel_info_lbl.config(text=f"X:{px} Y:{py}  R:{r} G:{g} B:{b}")
+                return
+        self.pixel_info_lbl.config(text="")
+
+    def zoom_in(self):
+        self.zoom_level = min(8.0, self.zoom_level * 1.25)
+        self.zoom_fit_enabled = False
+        self._update_zoom_label()
+        self.update_preview_display()
+
+    def zoom_out(self):
+        self.zoom_level = max(0.125, self.zoom_level / 1.25)
+        self.zoom_fit_enabled = False
+        self._update_zoom_label()
+        self.update_preview_display()
+
+    def zoom_1to1(self):
+        self.zoom_level = 1.0
+        self.zoom_fit_enabled = False
+        self._update_zoom_label()
+        self.update_preview_display()
+
+    def zoom_fit(self):
+        self.zoom_fit_enabled = True
+        self._update_zoom_label()
+        self.update_preview_display()
+
+    def _update_zoom_label(self):
+        if self.zoom_fit_enabled:
+            self.zoom_label.config(text="Fit")
+        else:
+            self.zoom_label.config(text=f"{int(self.zoom_level * 100)}%")
+
+    def _enable_zoom_controls(self, enable):
+        state = tk.NORMAL if enable else tk.DISABLED
+        self.zoom_out_btn.config(state=state)
+        self.zoom_in_btn.config(state=state)
+        self.zoom_fit_btn.config(state=state)
+
+    # ----------------------------------------------------------------------
     # Selection & Preview Handlers
     # ----------------------------------------------------------------------
 
@@ -646,6 +870,7 @@ class WadPackerApp:
             self.clear_tree_selection(self.tree_wad)
             
         self.update_preview_from_selection()
+        self._update_pack_status()
         
     def on_wad_selection_changed(self, event=None):
         if getattr(self, 'updating_selection', False):
@@ -666,21 +891,16 @@ class WadPackerApp:
         self.updating_selection = False
 
     def update_preview_from_selection(self):
-        # Determine what is selected
         bmp_sel = self.tree_bmp.selection()
         wad_sel = self.tree_wad.selection()
-        
-        # Clear previous state
+
         self.current_preview_image = None
         self.current_preview_source = None
         self.current_preview_name = None
-        
-        # Hide/disable all operation buttons by default
-        self.op_btn_rename.config(state=tk.DISABLED)
-        self.op_btn_delete.config(state=tk.DISABLED)
-        self.op_btn_export.config(state=tk.DISABLED)
-        self.op_btn_replace.config(state=tk.DISABLED)
-        
+
+        self.preview_canvas.delete("all")
+        self.canvas_image_id = None
+
         if len(bmp_sel) == 1:
             vals = self.tree_bmp.item(bmp_sel[0], "values")
             if vals:
@@ -689,38 +909,31 @@ class WadPackerApp:
                 if os.path.exists(full_path):
                     try:
                         img = Image.open(full_path)
-                        # Load completely to prevent file lock
                         img.load()
                         self.current_preview_image = img
                         self.current_preview_source = "workspace"
                         self.current_preview_name = filename
-                        
+
                         self.meta_name_lbl.config(text=f"Name: {filename}")
                         self.meta_res_lbl.config(text=f"Resolution: {img.size[0]}x{img.size[1]}")
                         self.meta_src_lbl.config(text="Source: Workspace Image")
                         self.meta_info_lbl.config(text=f"Format: {img.mode}")
-                        
-                        # Enable Workspace Actions
-                        self.op_btn_rename.config(state=tk.NORMAL)
-                        self.op_btn_delete.config(state=tk.NORMAL)
                     except Exception as e:
-                        self.preview_img_lbl.config(image='', text=f"Error reading image:\n{str(e)[:30]}")
+                        self._draw_placeholder(f"Error:\n{str(e)[:40]}")
                         self.meta_name_lbl.config(text=f"Name: {filename}")
                         self.meta_res_lbl.config(text="Resolution: Unknown")
                         self.meta_src_lbl.config(text="Source: Workspace Image")
                         self.meta_info_lbl.config(text="Format: Unknown")
-                        
+
         elif len(bmp_sel) > 1:
             self.current_preview_source = "workspace_bulk"
-            self.preview_img_lbl.config(image='', text=f"{len(bmp_sel)} files selected")
-            self.meta_name_lbl.config(text=f"Multiple Files Selected ({len(bmp_sel)})")
+            count = len(bmp_sel)
+            self._draw_placeholder(f"{count} files\nselected")
+            self.meta_name_lbl.config(text=f"Multiple Files ({count})")
             self.meta_res_lbl.config(text="-")
             self.meta_src_lbl.config(text="Source: Workspace Images")
             self.meta_info_lbl.config(text="-")
-            
-            # Enable bulk delete
-            self.op_btn_delete.config(state=tk.NORMAL)
-            
+
         elif len(wad_sel) == 1:
             vals = self.tree_wad.item(wad_sel[0], "values")
             if vals:
@@ -735,71 +948,102 @@ class WadPackerApp:
                             self.current_preview_image = img
                             self.current_preview_source = "wad"
                             self.current_preview_name = entry_name
-                            
+
                             self.meta_name_lbl.config(text=f"Name: {entry_name}")
                             self.meta_res_lbl.config(text=f"Resolution: {img.size[0]}x{img.size[1]}")
                             self.meta_src_lbl.config(text="Source: WAD Texture")
                             self.meta_info_lbl.config(text=f"Format: {self.wad_format.get()} Lump")
-                            
-                            # Enable WAD Entry Actions
-                            self.op_btn_rename.config(state=tk.NORMAL)
-                            self.op_btn_delete.config(state=tk.NORMAL)
-                            self.op_btn_export.config(state=tk.NORMAL)
-                            self.op_btn_replace.config(state=tk.NORMAL)
                     except Exception as e:
-                        self.preview_img_lbl.config(image='', text=f"Error decoding lump:\n{str(e)[:30]}")
+                        self._draw_placeholder(f"Decode error:\n{str(e)[:40]}")
                         self.meta_name_lbl.config(text=f"Name: {entry_name}")
                         self.meta_res_lbl.config(text="Resolution: Unknown")
                         self.meta_src_lbl.config(text="Source: WAD Texture")
                         self.meta_info_lbl.config(text="Format: Unknown")
-                        
+
         elif len(wad_sel) > 1:
             self.current_preview_source = "wad_bulk"
-            self.preview_img_lbl.config(image='', text=f"{len(wad_sel)} textures selected")
-            self.meta_name_lbl.config(text=f"Multiple Textures Selected ({len(wad_sel)})")
+            count = len(wad_sel)
+            self._draw_placeholder(f"{count} textures\nselected")
+            self.meta_name_lbl.config(text=f"Multiple Textures ({count})")
             self.meta_res_lbl.config(text="-")
             self.meta_src_lbl.config(text="Source: WAD Textures")
             self.meta_info_lbl.config(text="-")
-            
-            # Enable bulk delete and bulk export
-            self.op_btn_delete.config(state=tk.NORMAL)
-            self.op_btn_export.config(state=tk.NORMAL)
-            
+
         else:
-            self.preview_img_lbl.config(image='', text="No Selection")
+            self._draw_placeholder("Select an image\nto preview")
             self.meta_name_lbl.config(text="Name: -")
             self.meta_res_lbl.config(text="Resolution: -")
             self.meta_src_lbl.config(text="Source: -")
             self.meta_info_lbl.config(text="Format: -")
-            
+
+        self._update_op_context(
+            self.current_preview_source,
+            len(bmp_sel) if self.current_preview_source in ("workspace", "workspace_bulk") else len(wad_sel)
+        )
+
+        if self.current_preview_source in ("workspace", "wad"):
+            self.zoom_fit_enabled = True
+            self._update_zoom_label()
+            self._enable_zoom_controls(True)
+        else:
+            self._enable_zoom_controls(False)
+
         self.update_preview_display()
 
+    def _draw_placeholder(self, text):
+        self.preview_canvas.delete("all")
+        self.canvas_image_id = None
+        cw = max(60, self.preview_canvas.winfo_width())
+        ch = max(60, self.preview_canvas.winfo_height())
+        self.preview_canvas.create_text(
+            cw // 2, ch // 2,
+            text=text, fill=self.colors["subtext"],
+            font=("Segoe UI", 10), anchor="center"
+        )
+
     def update_preview_display(self):
+        self.preview_canvas.delete("all")
+        self.canvas_image_id = None
+
         if not self.current_preview_image:
-            self.preview_img_lbl.config(image='', text="No Selection")
+            self._draw_placeholder("Select an image\nto preview")
             return
-            
+
         img = self.current_preview_image
         orig_w, orig_h = img.size
-        
-        # Get available space
-        frame_w = max(100, self.preview_frame.winfo_width() - 20)
-        frame_h = max(100, self.preview_frame.winfo_height() - 20)
-        
-        # Calculate aspect ratio scaling
-        ratio = min(frame_w / orig_w, frame_h / orig_h)
-        new_w = int(orig_w * ratio)
-        new_h = int(orig_h * ratio)
-        
-        if new_w > 0 and new_h > 0:
-            resample_method = Image.Resampling.NEAREST if ratio >= 1.0 else Image.Resampling.BILINEAR
-            resized_img = img.resize((new_w, new_h), resample_method)
-            
-            # Convert to PhotoImage
-            self.preview_photo = ImageTk.PhotoImage(resized_img)
-            self.preview_img_lbl.config(image=self.preview_photo, text="")
+        cw = max(60, self.preview_canvas.winfo_width())
+        ch = max(60, self.preview_canvas.winfo_height())
+
+        if self.zoom_fit_enabled:
+            self.zoom_level = min(cw / orig_w, ch / orig_h)
+            self._update_zoom_label()
+
+        scaled_w = int(orig_w * self.zoom_level)
+        scaled_h = int(orig_h * self.zoom_level)
+
+        if scaled_w < 1 or scaled_h < 1:
+            return
+
+        display_img = img
+        if display_img.mode in ("P", "L"):
+            display_img = display_img.convert("RGBA")
+
+        resample = Image.Resampling.NEAREST if self.zoom_level >= 1.0 else Image.Resampling.BILINEAR
+        scaled_img = display_img.resize((scaled_w, scaled_h), resample)
+
+        cb = self._make_checkerboard(scaled_w, scaled_h, cell=max(6, int(8 * self.zoom_level)))
+        cb.paste(scaled_img, (0, 0), scaled_img)
+
+        self._preview_photo = ImageTk.PhotoImage(cb)
+        x = cw // 2
+        y = ch // 2
+        self.canvas_image_id = self.preview_canvas.create_image(
+            x, y, image=self._preview_photo, anchor="center"
+        )
 
     def on_preview_frame_resize(self, event=None):
+        if self.current_preview_image and self.zoom_fit_enabled:
+            self.zoom_level = 0
         self.update_preview_display()
 
     # ----------------------------------------------------------------------
@@ -1074,12 +1318,15 @@ class WadPackerApp:
             return
             
         self.log(f"Starting compilation of {len(to_pack)} textures...", "info")
+        self.pack_status_lbl.config(text=f"Packing {len(to_pack)} textures...")
         self.progress["maximum"] = len(to_pack)
         self.progress["value"] = 0
         
         def progress_cb(current, total, message, level):
             self.log(message, level)
             self.progress["value"] = current
+            if current > 0:
+                self.pack_status_lbl.config(text=f"Packing... {current} / {total}")
             self.root.update_idletasks()
         
         success_count = backend.pack_textures_to_wad(
@@ -1094,6 +1341,7 @@ class WadPackerApp:
             messagebox.showwarning("Packing Failed", "No textures were compiled.")
             
         self.progress["value"] = 0
+        self.pack_status_lbl.config(text=f"Done  —  {success_count} textures packed")
         self.refresh_all()
 
     # ----------------------------------------------------------------------
