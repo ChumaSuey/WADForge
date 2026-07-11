@@ -17,9 +17,6 @@ Texture packer & WAD editor for Quake 1 (WAD2) and GoldSrc/HL (WAD3).
 - High DPI awareness for crisp rendering on Windows
 - Persistent workspace path via `config.json`
 
-## Screenshot
-
-![WADForge Screenshot](screenshot.png)
 
 ## Requirements
 
