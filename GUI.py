@@ -1,7 +1,7 @@
 """
-GUI.py — All tkinter/ttk widget code for the Quake BMP to WAD Packer.
+GUI.py — All tkinter/ttk widget code for WADForge.
 
-The WadPackerApp class builds the entire UI and delegates all
+The WADForgeApp class builds the entire UI and delegates all
 business logic to functions in backend.py.
 """
 
@@ -21,10 +21,10 @@ import backend
 # GUI Application
 # ----------------------------------------------------------------------
 
-class WadPackerApp:
+class WADForgeApp:
     def __init__(self, root):
         self.root = root
-        self.root.title("Quake BMP to WAD Texture Packer")
+        self.root.title("WADForge - Quake/HL Texture Manager")
         self.root.geometry("1100x700")
         self.root.minsize(950, 600)
         
@@ -38,7 +38,7 @@ class WadPackerApp:
         self.search_query = tk.StringVar()
         
         # Internal caching
-        self.detected_bmps = [] # List of dicts representing files
+        self.detected_images = [] # List of dicts representing files
         self.wad_contents = []  # List of dicts representing lumps
         
         # Preview state variables
@@ -151,10 +151,10 @@ class WadPackerApp:
         header_frame = ttk.Frame(self.root)
         header_frame.pack(fill=tk.X, padx=15, pady=(10, 5))
         
-        title_label = ttk.Label(header_frame, text="Quake BMP to WAD Texture Packer", style="Title.TLabel")
+        title_label = ttk.Label(header_frame, text="WADForge - Quake/HL Texture Manager", style="Title.TLabel")
         title_label.pack(side=tk.LEFT)
         
-        subtitle = ttk.Label(header_frame, text="Automated BMP compiler for GoldSrc & idTech games", style="Sub.TLabel")
+        subtitle = ttk.Label(header_frame, text="Texture packer & WAD editor for GoldSrc & idTech games", style="Sub.TLabel")
         subtitle.pack(side=tk.LEFT, padx=15, pady=(6, 0))
 
         # ----------------- Selection Card (Paths & Configuration) -----------------
@@ -221,61 +221,61 @@ class WadPackerApp:
         list_pane = ttk.PanedWindow(self.root, orient=tk.HORIZONTAL)
         list_pane.pack(fill=tk.BOTH, expand=True, padx=15, pady=5)
         
-        # Left Panel (BMP Files)
-        bmp_panel = ttk.Frame(list_pane, style="Card.TFrame")
-        list_pane.add(bmp_panel, weight=35)
+        # Left Panel (Workspace Images)
+        image_panel = ttk.Frame(list_pane, style="Card.TFrame")
+        list_pane.add(image_panel, weight=35)
         
-        bmp_header = ttk.Frame(bmp_panel, style="Header.TFrame")
-        bmp_header.pack(fill=tk.X, padx=5, pady=5)
+        image_header = ttk.Frame(image_panel, style="Header.TFrame")
+        image_header.pack(fill=tk.X, padx=5, pady=5)
         
-        bmp_title = ttk.Label(bmp_header, text="Workspace Images", style="Header.TLabel")
-        bmp_title.pack(side=tk.LEFT, pady=5)
+        image_title = ttk.Label(image_header, text="Workspace Images", style="Header.TLabel")
+        image_title.pack(side=tk.LEFT, pady=5)
         
         # Search Box
-        search_label = ttk.Label(bmp_header, text="Filter:", style="Card.TLabel")
+        search_label = ttk.Label(image_header, text="Filter:", style="Card.TLabel")
         search_label.pack(side=tk.RIGHT, padx=5)
         
-        search_entry = ttk.Entry(bmp_header, textvariable=self.search_query, width=20)
+        search_entry = ttk.Entry(image_header, textvariable=self.search_query, width=20)
         search_entry.pack(side=tk.RIGHT, padx=5)
-        self.search_query.trace_add("write", lambda *args: self.filter_bmps())
+        self.search_query.trace_add("write", lambda *args: self.filter_images())
         
-        # BMP Treeview
-        tree_frame_bmp = ttk.Frame(bmp_panel)
-        tree_frame_bmp.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
+        # Image Treeview
+        tree_frame_images = ttk.Frame(image_panel)
+        tree_frame_images.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
         
-        self.tree_bmp = ttk.Treeview(tree_frame_bmp, columns=("filename", "texname", "res", "format", "status"), show="headings", selectmode="extended")
-        self.tree_bmp.heading("filename", text="File Name", command=lambda: self.sort_tree(self.tree_bmp, "filename", False))
-        self.tree_bmp.heading("texname", text="Texture Name", command=lambda: self.sort_tree(self.tree_bmp, "texname", False))
-        self.tree_bmp.heading("res", text="Resolution", command=lambda: self.sort_tree(self.tree_bmp, "res", False))
-        self.tree_bmp.heading("format", text="Format", command=lambda: self.sort_tree(self.tree_bmp, "format", False))
-        self.tree_bmp.heading("status", text="Status", command=lambda: self.sort_tree(self.tree_bmp, "status", False))
+        self.tree_images = ttk.Treeview(tree_frame_images, columns=("filename", "texname", "res", "format", "status"), show="headings", selectmode="extended")
+        self.tree_images.heading("filename", text="File Name", command=lambda: self.sort_tree(self.tree_images, "filename", False))
+        self.tree_images.heading("texname", text="Texture Name", command=lambda: self.sort_tree(self.tree_images, "texname", False))
+        self.tree_images.heading("res", text="Resolution", command=lambda: self.sort_tree(self.tree_images, "res", False))
+        self.tree_images.heading("format", text="Format", command=lambda: self.sort_tree(self.tree_images, "format", False))
+        self.tree_images.heading("status", text="Status", command=lambda: self.sort_tree(self.tree_images, "status", False))
         
-        self.tree_bmp.column("filename", width=140)
-        self.tree_bmp.column("texname", width=110)
-        self.tree_bmp.column("res", width=80, anchor="center")
-        self.tree_bmp.column("format", width=85, anchor="center")
-        self.tree_bmp.column("status", width=160)
+        self.tree_images.column("filename", width=140)
+        self.tree_images.column("texname", width=110)
+        self.tree_images.column("res", width=80, anchor="center")
+        self.tree_images.column("format", width=85, anchor="center")
+        self.tree_images.column("status", width=160)
         
-        bmp_scroll_y = ttk.Scrollbar(tree_frame_bmp, orient=tk.VERTICAL, command=self.tree_bmp.yview)
-        self.tree_bmp.configure(yscrollcommand=bmp_scroll_y.set)
+        image_scroll_y = ttk.Scrollbar(tree_frame_images, orient=tk.VERTICAL, command=self.tree_images.yview)
+        self.tree_images.configure(yscrollcommand=image_scroll_y.set)
         
-        self.tree_bmp.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-        bmp_scroll_y.pack(side=tk.RIGHT, fill=tk.Y)
+        self.tree_images.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        image_scroll_y.pack(side=tk.RIGHT, fill=tk.Y)
         
-        self.tree_bmp.bind("<Double-1>", self.on_bmp_double_click)
-        self.tree_bmp.bind("<<TreeviewSelect>>", self.on_bmp_selection_changed)
+        self.tree_images.bind("<Double-1>", self.on_image_double_click)
+        self.tree_images.bind("<<TreeviewSelect>>", self.on_image_selection_changed)
         
         # Selection tools
-        bmp_ctrls = ttk.Frame(bmp_panel, style="Card.TFrame")
-        bmp_ctrls.pack(fill=tk.X, padx=5, pady=5)
+        image_ctrls = ttk.Frame(image_panel, style="Card.TFrame")
+        image_ctrls.pack(fill=tk.X, padx=5, pady=5)
         
-        sel_all_btn = ttk.Button(bmp_ctrls, text="Select All", command=self.select_all_bmps)
+        sel_all_btn = ttk.Button(image_ctrls, text="Select All", command=self.select_all_images)
         sel_all_btn.pack(side=tk.LEFT, padx=5, pady=2)
         
-        sel_none_btn = ttk.Button(bmp_ctrls, text="Clear Selection", command=self.clear_bmp_selection)
+        sel_none_btn = ttk.Button(image_ctrls, text="Clear Selection", command=self.clear_image_selection)
         sel_none_btn.pack(side=tk.LEFT, padx=5, pady=2)
         
-        self.selection_lbl = ttk.Label(bmp_ctrls, text="0 / 0 selected (0 valid)", style="Card.TLabel")
+        self.selection_lbl = ttk.Label(image_ctrls, text="0 / 0 selected (0 valid)", style="Card.TLabel")
         self.selection_lbl.pack(side=tk.RIGHT, padx=10)
         
         # Middle Panel (WAD Contents)
@@ -537,19 +537,19 @@ class WadPackerApp:
             except Exception:
                 pass
 
-    def select_all_bmps(self):
-        self.tree_bmp.selection_set(self.tree_bmp.get_children())
-        self.on_bmp_selection_changed()
+    def select_all_images(self):
+        self.tree_images.selection_set(self.tree_images.get_children())
+        self.on_image_selection_changed()
 
-    def clear_bmp_selection(self):
-        self.tree_bmp.selection_remove(self.tree_bmp.get_children())
-        self.on_bmp_selection_changed()
+    def clear_image_selection(self):
+        self.tree_images.selection_remove(self.tree_images.get_children())
+        self.on_image_selection_changed()
 
-    def on_bmp_double_click(self, event):
-        item = self.tree_bmp.focus()
+    def on_image_double_click(self, event):
+        item = self.tree_images.focus()
         if not item:
             return
-        vals = self.tree_bmp.item(item, "values")
+        vals = self.tree_images.item(item, "values")
         if vals:
             filename = vals[0]
             full_path = os.path.join(self.workspace_dir.get(), filename)
@@ -572,19 +572,19 @@ class WadPackerApp:
     def refresh_all(self):
         self.clear_log()
         self.log("Refreshing lists...", "info")
-        self.refresh_bmps()
+        self.refresh_images()
         self.refresh_wad()
 
-    def refresh_bmps(self):
+    def refresh_images(self):
         # Clear list
-        for item in self.tree_bmp.get_children():
-            self.tree_bmp.delete(item)
+        for item in self.tree_images.get_children():
+            self.tree_images.delete(item)
             
-        self.detected_bmps = []
+        self.detected_images = []
         folder = self.workspace_dir.get()
         
         try:
-            result = backend.scan_workspace_bmps(folder)
+            result = backend.scan_workspace_images(folder)
         except FileNotFoundError as e:
             self.log(str(e), "error")
             return
@@ -597,26 +597,26 @@ class WadPackerApp:
             self.selection_lbl.config(text="0 / 0 selected (0 valid)")
             return
         
-        self.detected_bmps, warnings = result
+        self.detected_images, warnings = result
         
         # Log any warnings from the scan
         for level, msg in warnings:
             self.log(msg, level)
         
-        self.filter_bmps()
+        self.filter_images()
 
-    def filter_bmps(self):
+    def filter_images(self):
         # Repopulate Treeview based on filter
-        for item in self.tree_bmp.get_children():
-            self.tree_bmp.delete(item)
+        for item in self.tree_images.get_children():
+            self.tree_images.delete(item)
             
         query = self.search_query.get().lower().strip()
         
-        for info in self.detected_bmps:
+        for info in self.detected_images:
             if query and query not in info["filename"].lower() and query not in info["texname"].lower():
                 continue
                 
-            item_id = self.tree_bmp.insert("", tk.END, values=(
+            item_id = self.tree_images.insert("", tk.END, values=(
                 info["filename"],
                 info["texname"],
                 info["res"],
@@ -627,34 +627,34 @@ class WadPackerApp:
             # Tags for row color formatting
             status = info["status"]
             if status.startswith("ERR:") or status.startswith("Error"):
-                self.tree_bmp.item(item_id, tags=("error",))
+                self.tree_images.item(item_id, tags=("error",))
             elif status.startswith("WARN:"):
-                self.tree_bmp.item(item_id, tags=("warning",))
+                self.tree_images.item(item_id, tags=("warning",))
             elif status.startswith("CONFLICT:"):
-                self.tree_bmp.item(item_id, tags=("conflict",))
+                self.tree_images.item(item_id, tags=("conflict",))
             elif status.startswith("DUP:"):
-                self.tree_bmp.item(item_id, tags=("duplicate",))
+                self.tree_images.item(item_id, tags=("duplicate",))
             else:
-                self.tree_bmp.item(item_id, tags=("ok",))
+                self.tree_images.item(item_id, tags=("ok",))
                 
         # Configure tags colors in Treeview
-        self.tree_bmp.tag_configure("error", foreground=self.colors["error"])
-        self.tree_bmp.tag_configure("warning", foreground=self.colors["warning"])
-        self.tree_bmp.tag_configure("conflict", foreground=self.colors["warning"])
-        self.tree_bmp.tag_configure("duplicate", foreground=self.colors["subtext"])
-        self.tree_bmp.tag_configure("ok", foreground=self.colors["text"])
+        self.tree_images.tag_configure("error", foreground=self.colors["error"])
+        self.tree_images.tag_configure("warning", foreground=self.colors["warning"])
+        self.tree_images.tag_configure("conflict", foreground=self.colors["warning"])
+        self.tree_images.tag_configure("duplicate", foreground=self.colors["subtext"])
+        self.tree_images.tag_configure("ok", foreground=self.colors["text"])
         
-        self.on_bmp_selection_changed()
+        self.on_image_selection_changed()
 
     def _update_pack_status(self):
-        valid = sum(1 for b in self.detected_bmps if b["valid"])
-        selected = len(self.tree_bmp.selection())
+        valid = sum(1 for b in self.detected_images if b["valid"])
+        selected = len(self.tree_images.selection())
         if selected > 0:
             valid_in_sel = 0
-            for item in self.tree_bmp.selection():
-                vals = self.tree_bmp.item(item, "values")
+            for item in self.tree_images.selection():
+                vals = self.tree_images.item(item, "values")
                 if vals:
-                    for info in self.detected_bmps:
+                    for info in self.detected_images:
                         if info["filename"] == vals[0] and info["valid"]:
                             valid_in_sel += 1
                             break
@@ -846,24 +846,24 @@ class WadPackerApp:
     # Selection & Preview Handlers
     # ----------------------------------------------------------------------
 
-    def on_bmp_selection_changed(self, event=None):
+    def on_image_selection_changed(self, event=None):
         if getattr(self, 'updating_selection', False):
             return
             
-        selected_items = self.tree_bmp.selection()
+        selected_items = self.tree_images.selection()
         total_selected = len(selected_items)
         valid_selected = 0
         
         for item in selected_items:
-            vals = self.tree_bmp.item(item, "values")
+            vals = self.tree_images.item(item, "values")
             if vals:
                 filename = vals[0]
-                for info in self.detected_bmps:
+                for info in self.detected_images:
                     if info["filename"] == filename and info["valid"]:
                         valid_selected += 1
                         break
                         
-        self.selection_lbl.config(text=f"{total_selected} / {len(self.detected_bmps)} selected ({valid_selected} valid)")
+        self.selection_lbl.config(text=f"{total_selected} / {len(self.detected_images)} selected ({valid_selected} valid)")
         
         # Clear WAD tree selection quietly
         if total_selected > 0:
@@ -881,7 +881,7 @@ class WadPackerApp:
         
         # Clear BMP tree selection quietly
         if total_selected > 0:
-            self.clear_tree_selection(self.tree_bmp)
+            self.clear_tree_selection(self.tree_images)
             
         self.update_preview_from_selection()
 
@@ -891,7 +891,7 @@ class WadPackerApp:
         self.updating_selection = False
 
     def update_preview_from_selection(self):
-        bmp_sel = self.tree_bmp.selection()
+        image_sel = self.tree_images.selection()
         wad_sel = self.tree_wad.selection()
 
         self.current_preview_image = None
@@ -901,8 +901,8 @@ class WadPackerApp:
         self.preview_canvas.delete("all")
         self.canvas_image_id = None
 
-        if len(bmp_sel) == 1:
-            vals = self.tree_bmp.item(bmp_sel[0], "values")
+        if len(image_sel) == 1:
+            vals = self.tree_images.item(image_sel[0], "values")
             if vals:
                 filename = vals[0]
                 full_path = os.path.join(self.workspace_dir.get(), filename)
@@ -925,9 +925,9 @@ class WadPackerApp:
                         self.meta_src_lbl.config(text="Source: Workspace Image")
                         self.meta_info_lbl.config(text="Format: Unknown")
 
-        elif len(bmp_sel) > 1:
+        elif len(image_sel) > 1:
             self.current_preview_source = "workspace_bulk"
-            count = len(bmp_sel)
+            count = len(image_sel)
             self._draw_placeholder(f"{count} files\nselected")
             self.meta_name_lbl.config(text=f"Multiple Files ({count})")
             self.meta_res_lbl.config(text="-")
@@ -978,7 +978,7 @@ class WadPackerApp:
 
         self._update_op_context(
             self.current_preview_source,
-            len(bmp_sel) if self.current_preview_source in ("workspace", "workspace_bulk") else len(wad_sel)
+            len(image_sel) if self.current_preview_source in ("workspace", "workspace_bulk") else len(wad_sel)
         )
 
         if self.current_preview_source in ("workspace", "wad"):
@@ -1060,13 +1060,13 @@ class WadPackerApp:
                 try:
                     final_name = backend.rename_workspace_file(self.workspace_dir.get(), name, new_name)
                     self.log(f"Renamed file '{name}' to '{final_name}'", "success")
-                    self.refresh_bmps()
+                    self.refresh_images()
                     # Re-select renamed file
-                    for item in self.tree_bmp.get_children():
-                        vals = self.tree_bmp.item(item, "values")
+                    for item in self.tree_images.get_children():
+                        vals = self.tree_images.item(item, "values")
                         if vals and vals[0] == final_name:
-                            self.tree_bmp.selection_set(item)
-                            self.tree_bmp.see(item)
+                            self.tree_images.selection_set(item)
+                            self.tree_images.see(item)
                             break
                 except FileNotFoundError:
                     return
@@ -1112,13 +1112,13 @@ class WadPackerApp:
                     messagebox.showerror("Error", f"Failed to delete file:\n{errors[0][1]}", parent=self.root)
                 else:
                     self.log(f"Deleted file '{name}'", "success")
-                self.refresh_bmps()
+                self.refresh_images()
                     
         elif source == "workspace_bulk":
-            sel = self.tree_bmp.selection()
+            sel = self.tree_images.selection()
             filenames = []
             for item in sel:
-                vals = self.tree_bmp.item(item, "values")
+                vals = self.tree_images.item(item, "values")
                 if vals:
                     filenames.append(vals[0])
             if not filenames:
@@ -1128,7 +1128,7 @@ class WadPackerApp:
                 for fname, err in errors:
                     self.log(f"Failed to delete '{fname}': {err}", "error")
                 self.log(f"Deleted {success} of {len(filenames)} files", "success" if success == len(filenames) else "warning")
-                self.refresh_bmps()
+                self.refresh_images()
                 
         elif source == "wad":
             name = self.current_preview_name
@@ -1227,7 +1227,7 @@ class WadPackerApp:
         target_path = self.target_wad_path.get()
         
         if source == "wad" and target_path and os.path.exists(target_path):
-            bmp_path = filedialog.askopenfilename(
+            image_path = filedialog.askopenfilename(
                 initialdir=self.workspace_dir.get(),
                 title=f"Select Image to replace texture '{name}'",
                 filetypes=[
@@ -1241,10 +1241,10 @@ class WadPackerApp:
                 ],
                 parent=self.root
             )
-            if bmp_path:
+            if image_path:
                 try:
-                    backend.replace_wad_entry(target_path, name, bmp_path, self.wad_format.get())
-                    self.log(f"Replaced texture '{name}' inside WAD with '{os.path.basename(bmp_path)}'", "success")
+                    backend.replace_wad_entry(target_path, name, image_path, self.wad_format.get())
+                    self.log(f"Replaced texture '{name}' inside WAD with '{os.path.basename(image_path)}'", "success")
                     self.refresh_wad()
                     # Re-select the entry
                     for item in self.tree_wad.get_children():
@@ -1287,25 +1287,25 @@ class WadPackerApp:
             messagebox.showwarning("No WAD Selected", "Please select or create a WAD file before packing.")
             return
             
-        selected_items = self.tree_bmp.selection()
+        selected_items = self.tree_images.selection()
         
         # If nothing is selected, prompt to pack all valid files
         if not selected_items:
-            valid_bmps = [b for b in self.detected_bmps if b["valid"]]
-            if not valid_bmps:
+            valid_images = [b for b in self.detected_images if b["valid"]]
+            if not valid_images:
                 messagebox.showerror("No Textures to Pack", "No valid image files were found in the workspace folder.")
                 return
-            reply = messagebox.askyesno("Pack All Textures?", f"No specific textures selected. Do you want to pack all {len(valid_bmps)} valid textures?")
+            reply = messagebox.askyesno("Pack All Textures?", f"No specific textures selected. Do you want to pack all {len(valid_images)} valid textures?")
             if not reply:
                 return
-            to_pack = valid_bmps
+            to_pack = valid_images
         else:
             to_pack = []
             for item in selected_items:
-                vals = self.tree_bmp.item(item, "values")
+                vals = self.tree_images.item(item, "values")
                 if vals:
                     filename = vals[0]
-                    for info in self.detected_bmps:
+                    for info in self.detected_images:
                         if info["filename"] == filename:
                             if info["valid"]:
                                 to_pack.append(info)

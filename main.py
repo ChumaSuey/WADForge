@@ -8,7 +8,7 @@ maximizes the window while keeping the taskbar visible, and launches the GUI.
 import tkinter as tk
 import os
 import sys
-from GUI import WadPackerApp
+from GUI import WADForgeApp
 
 def enable_high_dpi_awareness():
     """
@@ -50,7 +50,7 @@ def main():
             pass # Fallback completely if standard window dimensions are required
 
     # Initialize the app layout
-    app = WadPackerApp(root)
+    app = WADForgeApp(root)
     root.mainloop()
 
 if __name__ == "__main__":

@@ -1,5 +1,5 @@
 """
-backend.py — Core WAD data structures, BMP compilation, and business-logic operations.
+backend.py — Core WAD data structures, image compilation, and business-logic operations.
 
 All functions here are pure logic — no tkinter imports, no GUI calls.
 Functions return values or raise exceptions; the GUI layer handles display.
@@ -198,7 +198,7 @@ def analyze_liquid_texture_name(name):
     else:
         return "Water Liquid (Swimmable)"
 
-def scan_workspace_bmps(folder):
+def scan_workspace_images(folder):
     """
     Scans workspace for compatible image files (BMP, PNG, TGA, PCX) and
     evaluates eligibility for texture packing. Checks resolution boundaries
@@ -436,7 +436,7 @@ def replace_wad_entry(wad_path, entry_name, import_image_path, wad_format):
     if w != old_w or h != old_h:
         raise ValueError(f"Dimension mismatch error. Replacement file bounds must measure exactly: {old_w}x{old_h}")
         
-    lump_data = compile_bmp_to_miptex(import_image_path, entry_name, wad_format)
+    lump_data = compile_image_to_miptex(import_image_path, entry_name, wad_format)
     wad.entries[entry_name].data = lump_data
     wad.save(wad_path)
 
@@ -465,13 +465,13 @@ def convert_wad_format_file(wad_path, current_format, target_format):
     wad.save(wad_path)
     return success
 
-def compile_bmp_to_miptex(bmp_path, name, wad_format):
+def compile_image_to_miptex(image_path, name, wad_format):
     """
     Compiles an external file asset into a full 4-level mipmapped binary Miptex structure.
     For WAD2: remaps colours to the Quake hardware palette so indices match at runtime.
     For WAD3: preserves custom palettes which get embedded directly in the lump.
     """
-    with Image.open(bmp_path) as img:
+    with Image.open(image_path) as img:
         w, h = img.size
 
         if wad_format == "WAD2":
@@ -540,7 +540,7 @@ def pack_textures_to_wad(wad_path, to_pack, wad_format, progress_cb=None):
             if liquid_type and progress_cb:
                 progress_cb(i, total, f"✨ Animated liquid prefix sequence scanned: Mapped to '{info['texname']}' as {liquid_type}.", "info")
                 
-            lump_data = compile_bmp_to_miptex(info["path"], info["texname"], wad_format)
+            lump_data = compile_image_to_miptex(info["path"], info["texname"], wad_format)
             entry = WadEntry(info["texname"], lump_data, type_byte=type_byte)
             wad.add_entry(entry)
             success_count += 1
