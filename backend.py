@@ -204,7 +204,7 @@ def scan_workspace_images(folder):
     evaluates eligibility for texture packing. Checks resolution boundaries
     and validates name patterns.
     """
-    SUPPORTED_EXTENSIONS = ('.bmp', '.png', '.tga', '.pcx')
+    SUPPORTED_EXTENSIONS = ('.bmp', '.png', '.tga', '.pcx', '.jpg', '.jpeg')
 
     if not os.path.exists(folder):
         raise FileNotFoundError(f"Target folder configuration mapping invalid: '{folder}'")

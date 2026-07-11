@@ -195,7 +195,10 @@ class WADForgeApp:
         wad_browse.pack(side=tk.LEFT, padx=(0, 5))
         
         wad_new = ttk.Button(wad_btn_frame, text="New...", command=self.create_new_wad)
-        wad_new.pack(side=tk.LEFT)
+        wad_new.pack(side=tk.LEFT, padx=(0, 5))
+        
+        wad_clear = ttk.Button(wad_btn_frame, text="Clear", command=self.clear_wad)
+        wad_clear.pack(side=tk.LEFT)
         
         # Format Selector & Refresh
         cfg_frame = ttk.Frame(paths_card)
@@ -523,6 +526,25 @@ class WADForgeApp:
             except Exception as e:
                 self.log(f"Failed to create new WAD: {str(e)}", "error")
             self.refresh_wad()
+
+    def clear_wad(self):
+        if not self.target_wad_path.get():
+            return
+        confirm = messagebox.askyesno(
+            "Clear WAD",
+            "This will unload the current WAD file and clear its texture list.\n\nProceed?",
+            parent=self.root
+        )
+        if not confirm:
+            return
+        self.target_wad_path.set("")
+        self.current_preview_image = None
+        self.current_preview_source = None
+        self.current_preview_name = None
+        self.preview_canvas.delete("all")
+        self.canvas_image_id = None
+        self.refresh_wad()
+        self.log("WAD file unloaded.", "info")
 
     def on_format_changed(self, event=None):
         target = self.target_wad_path.get()
