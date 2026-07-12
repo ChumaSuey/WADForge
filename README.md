@@ -31,6 +31,10 @@ pip install Pillow
 python main.py
 ```
 
+## Image of the Script
+<img width="1920" height="1020" alt="image" src="https://github.com/user-attachments/assets/a1830595-58f2-4342-beb0-fc9dc854ecbb" />
+
+
 ## Usage
 
 1. Set a **workspace folder** where your source images live, or restore defaults.
