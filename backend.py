@@ -28,7 +28,7 @@ def load_settings():
     If corrupted or not found, falls back safely to executable directory by default.
     """
     default_dir = get_executable_dir()
-    default_settings = {"workspace_dir": default_dir}
+    default_settings = {"workspace_dir": default_dir, "export_format": "bmp"}
     
     if not os.path.exists(CONFIG_FILE):
         return default_settings
@@ -38,14 +38,16 @@ def load_settings():
             data = json.load(f)
             if "workspace_dir" not in data or not data["workspace_dir"]:
                 data["workspace_dir"] = default_dir
+            if "export_format" not in data:
+                data["export_format"] = "bmp"
             return data
     except Exception:
         return default_settings
 
-def save_settings(workspace_dir):
-    """Saves the target workspace folder path selection explicitly into config.json."""
+def save_settings(workspace_dir, export_format="bmp"):
+    """Saves the target workspace folder path and export format explicitly into config.json."""
     try:
-        data = {"workspace_dir": workspace_dir}
+        data = {"workspace_dir": workspace_dir, "export_format": export_format}
         with open(CONFIG_FILE, "w", encoding="utf-8") as f:
             json.dump(data, f, indent=4, ensure_ascii=False)
         return True
@@ -55,7 +57,7 @@ def save_settings(workspace_dir):
 def restore_default_settings():
     """Drops the active configurations and reverts settings safely back to defaults."""
     default_dir = get_executable_dir()
-    save_settings(default_dir)
+    save_settings(default_dir, "bmp")
     return default_dir
 
 # ----------------------------------------------------------------------
@@ -410,13 +412,13 @@ def export_wad_entry(wad_path, entry_name, output_path, wad_format):
     img = decode_miptex_to_image(entry.data, wad_format)
     img.save(output_path)
 
-def export_wad_entries_bulk(wad_path, names, output_dir, wad_format):
+def export_wad_entries_bulk(wad_path, names, output_dir, wad_format, ext="bmp"):
     """Exports multiple texture lumps from a WAD container to a targeted directory path."""
     wad = WadFile.load(wad_path)
     count = 0
     for name in names:
         if name in wad.entries:
-            out_file = os.path.join(output_dir, f"{name}.bmp")
+            out_file = os.path.join(output_dir, f"{name}.{ext}")
             img = decode_miptex_to_image(wad.entries[name].data, wad_format)
             img.save(out_file)
             count += 1
@@ -439,6 +441,15 @@ def replace_wad_entry(wad_path, entry_name, import_image_path, wad_format):
     lump_data = compile_image_to_miptex(import_image_path, entry_name, wad_format)
     wad.entries[entry_name].data = lump_data
     wad.save(wad_path)
+
+
+def get_wad_entry_dimensions(wad_path, entry_name):
+    wad = WadFile.load(wad_path)
+    if entry_name not in wad.entries:
+        raise KeyError("Entry not found")
+    _, w, h = struct.unpack('<16sII', wad.entries[entry_name].data[:24])
+    return w, h
+
 
 def convert_wad_format_file(wad_path, current_format, target_format):
     """Converts WAD container formats between standard WAD2 and WAD3 architectures."""

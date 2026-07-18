@@ -17,6 +17,51 @@ from PIL import Image, ImageTk
 
 import backend
 
+
+class ToolTip:
+    def __init__(self, widget, text):
+        self.widget = widget
+        self.text = text
+        self.tip_window = None
+        self._enter_id = None
+        widget.bind('<Enter>', self._schedule)
+        widget.bind('<Leave>', self._hide)
+        widget.bind('<ButtonPress>', self._hide)
+
+    def _schedule(self, event=None):
+        self._hide()
+        self._enter_id = self.widget.after(500, self._show)
+
+    def _show(self):
+        self._enter_id = None
+        x = self.widget.winfo_rootx() + 20
+        y = self.widget.winfo_rooty() + self.widget.winfo_height() + 5
+        self.tip_window = tw = tk.Toplevel(self.widget)
+        tw.wm_overrideredirect(True)
+        label = tk.Label(
+            tw, text=self.text, background="#ffffc8", foreground="#1e1e2e",
+            relief="solid", borderwidth=1, font=("Segoe UI", 9),
+            padx=6, pady=3, justify=tk.LEFT
+        )
+        label.pack()
+        tw.update_idletasks()
+        tip_w = tw.winfo_reqwidth()
+        screen_w = self.widget.winfo_screenwidth()
+        if x + tip_w > screen_w:
+            x = self.widget.winfo_rootx() + self.widget.winfo_width() - tip_w - 5
+        if x < 0:
+            x = 5
+        tw.wm_geometry(f"+{x}+{y}")
+
+    def _hide(self, event=None):
+        if self._enter_id:
+            self.widget.after_cancel(self._enter_id)
+            self._enter_id = None
+        if self.tip_window:
+            self.tip_window.destroy()
+            self.tip_window = None
+
+
 # ----------------------------------------------------------------------
 # GUI Application
 # ----------------------------------------------------------------------
@@ -36,6 +81,7 @@ class WADForgeApp:
         self.target_wad_path = tk.StringVar()
         self.wad_format = tk.StringVar(value="WAD2")
         self.search_query = tk.StringVar()
+        self.export_format = tk.StringVar(value=settings.get("export_format", "bmp"))
         
         # Internal caching
         self.detected_images = [] # List of dicts representing files
@@ -157,6 +203,12 @@ class WADForgeApp:
         subtitle = ttk.Label(header_frame, text="Texture packer & WAD editor for GoldSrc & idTech games", style="Sub.TLabel")
         subtitle.pack(side=tk.LEFT, padx=15, pady=(6, 0))
 
+        self.console_btn = ttk.Button(header_frame, text="☰ Console", command=self.toggle_console)
+        self.console_btn.pack(side=tk.RIGHT, padx=2)
+
+        self.settings_btn = ttk.Button(header_frame, text="⚙ Settings", command=self.open_settings)
+        self.settings_btn.pack(side=tk.RIGHT, padx=2)
+
         # ----------------- Selection Card (Paths & Configuration) -----------------
         paths_card = ttk.Frame(self.root, style="Card.TFrame")
         paths_card.pack(fill=tk.X, padx=15, pady=5)
@@ -221,12 +273,12 @@ class WADForgeApp:
         paths_card.columnconfigure(1, weight=1)
 
         # ----------------- Paned Window for Lists -----------------
-        list_pane = ttk.PanedWindow(self.root, orient=tk.HORIZONTAL)
-        list_pane.pack(fill=tk.BOTH, expand=True, padx=15, pady=5)
+        self.list_pane = ttk.PanedWindow(self.root, orient=tk.HORIZONTAL)
+        self.list_pane.pack(fill=tk.BOTH, expand=True, padx=15, pady=5)
         
         # Left Panel (Workspace Images)
-        image_panel = ttk.Frame(list_pane, style="Card.TFrame")
-        list_pane.add(image_panel, weight=35)
+        image_panel = ttk.Frame(self.list_pane, style="Card.TFrame")
+        self.list_pane.add(image_panel, weight=35)
         
         image_header = ttk.Frame(image_panel, style="Header.TFrame")
         image_header.pack(fill=tk.X, padx=5, pady=5)
@@ -282,8 +334,8 @@ class WADForgeApp:
         self.selection_lbl.pack(side=tk.RIGHT, padx=10)
         
         # Middle Panel (WAD Contents)
-        wad_panel = ttk.Frame(list_pane, style="Card.TFrame")
-        list_pane.add(wad_panel, weight=35)
+        wad_panel = ttk.Frame(self.list_pane, style="Card.TFrame")
+        self.list_pane.add(wad_panel, weight=35)
         
         wad_header = ttk.Frame(wad_panel, style="Header.TFrame")
         wad_header.pack(fill=tk.X, padx=5, pady=5)
@@ -320,8 +372,8 @@ class WADForgeApp:
         self.tree_wad.bind("<<TreeviewSelect>>", self.on_wad_selection_changed)
         
         # Right Panel (Preview & Action Controls)
-        preview_panel = ttk.Frame(list_pane, style="Card.TFrame")
-        list_pane.add(preview_panel, weight=30)
+        preview_panel = ttk.Frame(self.list_pane, style="Card.TFrame")
+        self.list_pane.add(preview_panel, weight=30)
         
         preview_header = ttk.Frame(preview_panel, style="Header.TFrame")
         preview_header.pack(fill=tk.X, padx=5, pady=5)
@@ -405,15 +457,19 @@ class WADForgeApp:
         
         self.op_btn_rename = ttk.Button(btn_frame, text="Rename", command=self.on_op_rename)
         self.op_btn_rename.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=1)
+        ToolTip(self.op_btn_rename, "Rename the selected item")
         
         self.op_btn_delete = ttk.Button(btn_frame, text="Delete", command=self.on_op_delete)
         self.op_btn_delete.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=1)
+        ToolTip(self.op_btn_delete, "Delete the selected item(s) from disk or WAD")
         
         self.op_btn_export = ttk.Button(btn_frame, text="Export", command=self.on_op_export)
         self.op_btn_export.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=1)
+        ToolTip(self.op_btn_export, "Export selected WAD texture(s) to BMP/PNG")
         
         self.op_btn_replace = ttk.Button(btn_frame, text="Replace", command=self.on_op_replace)
         self.op_btn_replace.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=1)
+        ToolTip(self.op_btn_replace, "Replace a WAD texture's pixel data with an external image (must match dimensions)")
         
         self._disable_all_op_buttons()
 
@@ -442,10 +498,10 @@ class WADForgeApp:
         self.progress.pack(fill=tk.X, pady=(8, 0))
 
         # ----------------- Console Log Pane -----------------
-        log_panel = ttk.Frame(self.root, style="Card.TFrame", height=120)
-        log_panel.pack(fill=tk.BOTH, expand=False, padx=15, pady=(5, 15))
+        self.log_panel = ttk.Frame(self.root, style="Card.TFrame", height=120)
+        self.log_panel.pack_forget()
         
-        log_title_frame = ttk.Frame(log_panel, style="Header.TFrame")
+        log_title_frame = ttk.Frame(self.log_panel, style="Header.TFrame")
         log_title_frame.pack(fill=tk.X, padx=5, pady=2)
         
         log_title = ttk.Label(log_title_frame, text="Execution Log / Warnings", style="Header.TLabel")
@@ -454,7 +510,7 @@ class WADForgeApp:
         clear_log_btn = ttk.Button(log_title_frame, text="Clear Log", command=self.clear_log)
         clear_log_btn.pack(side=tk.RIGHT)
         
-        self.log_text = ScrolledText(log_panel, height=4, background="#11111b", foreground=self.colors["text"], insertbackground=self.colors["text"], font=("Consolas", 9), state=tk.DISABLED)
+        self.log_text = ScrolledText(self.log_panel, height=4, background="#11111b", foreground=self.colors["text"], insertbackground=self.colors["text"], font=("Consolas", 9), state=tk.DISABLED)
         self.log_text.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
         
         # Tags for colored logs
@@ -479,6 +535,55 @@ class WADForgeApp:
         self.log_text.delete("1.0", tk.END)
         self.log_text.config(state=tk.DISABLED)
 
+    def toggle_console(self):
+        if self.log_panel.winfo_ismapped():
+            self.log_panel.pack_forget()
+            self.console_btn.config(text="☰ Console")
+        else:
+            self.log_panel.pack(fill=tk.BOTH, expand=False, padx=15, pady=(5, 15), after=self.list_pane)
+            self.log_text.config(height=8)
+            self.console_btn.config(text="☰ Console ▲")
+
+    def open_settings(self):
+        dialog = tk.Toplevel(self.root)
+        dialog.title("Settings")
+        dialog.resizable(False, False)
+        dialog.transient(self.root)
+        dialog.grab_set()
+        dialog.configure(bg=self.colors["card"])
+
+        content = ttk.Frame(dialog, style="Card.TFrame")
+        content.pack(fill=tk.BOTH, expand=True, padx=20, pady=15)
+
+        ttk.Label(content, text="Default Export Format:", style="Card.TLabel",
+                   font=("Segoe UI", 10, "bold")).pack(anchor="w", pady=(0, 5))
+
+        fmt_combo = ttk.Combobox(content, textvariable=self.export_format,
+                                  values=["bmp", "png"], state="readonly", width=10)
+        fmt_combo.pack(anchor="w")
+
+        ttk.Label(content, text="Applied to bulk exports.\nSingle exports let you choose per file.",
+                   style="Card.TLabel", font=("Segoe UI", 8)).pack(anchor="w", pady=(10, 0))
+
+        btn_row = ttk.Frame(content, style="Card.TFrame")
+        btn_row.pack(fill=tk.X, pady=(15, 0))
+
+        ttk.Button(btn_row, text="Save", style="Primary.TButton",
+                   command=lambda: self._save_settings_and_close(dialog)).pack(side=tk.RIGHT, padx=5)
+        ttk.Button(btn_row, text="Cancel", command=dialog.destroy).pack(side=tk.RIGHT, padx=5)
+
+        dialog.update_idletasks()
+        w = dialog.winfo_reqwidth()
+        h = dialog.winfo_reqheight()
+        px = self.root.winfo_rootx() + (self.root.winfo_width() - w) // 2
+        py = self.root.winfo_rooty() + (self.root.winfo_height() - h) // 2
+        dialog.geometry(f"+{px}+{py}")
+
+    def _save_settings_and_close(self, dialog):
+        backend.save_settings(self.workspace_dir.get(), self.export_format.get())
+        dialog.destroy()
+        self.log(f"Export format set to '{self.export_format.get().upper()}'", "success")
+
     def browse_workspace(self):
         dir_path = filedialog.askdirectory(initialdir=self.workspace_dir.get(), title="Select Workspace Folder")
         if dir_path:
@@ -487,7 +592,7 @@ class WADForgeApp:
 
     def save_workspace_settings(self):
         folder = self.workspace_dir.get()
-        if backend.save_settings(folder):
+        if backend.save_settings(folder, self.export_format.get()):
             self.log(f"Workspace path default successfully stored to config.json", "success")
             messagebox.showinfo("Settings Saved", "Current folder path saved as your default workspace!", parent=self.root)
         else:
@@ -496,6 +601,7 @@ class WADForgeApp:
     def restore_workspace_default(self):
         default_dir = backend.restore_default_settings()
         self.workspace_dir.set(default_dir)
+        self.export_format.set("bmp")
         self.log(f"Workspace reset to executable directory default.", "info")
         self.refresh_all()
 
@@ -727,57 +833,69 @@ class WADForgeApp:
     # Preview helpers
     # ----------------------------------------------------------------------
 
-    def _disable_all_op_buttons(self):
+    def _pack_btn(self, btn):
+        btn.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=1)
+
+    def _hide_all_op_buttons(self):
         for btn in (self.op_btn_rename, self.op_btn_delete,
                      self.op_btn_export, self.op_btn_replace):
-            btn.config(state=tk.DISABLED)
+            btn.pack_forget()
+
+    def _disable_all_op_buttons(self):
+        self._hide_all_op_buttons()
+        self.op_btn_rename.config(text="Rename")
+        self.op_btn_delete.config(text="Delete")
+        self.op_btn_export.config(text="Export")
+        self.op_btn_replace.config(text="Replace")
 
     def _update_op_context(self, source, count=1):
         colors = self.colors
         plural = "s" if count > 1 else ""
+        self._hide_all_op_buttons()
 
         if source == "workspace":
             self.source_context_label.config(
                 text=f"▸ Workspace File{plural} selected — Rename & Delete operate on disk",
                 foreground=colors["primary"]
             )
-            self.op_btn_rename.config(state=tk.NORMAL)
-            self.op_btn_delete.config(state=tk.NORMAL)
-            self.op_btn_export.config(state=tk.DISABLED)
-            self.op_btn_replace.config(state=tk.DISABLED)
+            self.op_btn_rename.config(text="Rename File")
+            self._pack_btn(self.op_btn_rename)
+            self.op_btn_delete.config(text="Delete from Disk")
+            self._pack_btn(self.op_btn_delete)
         elif source == "workspace_bulk":
             self.source_context_label.config(
                 text=f"▸ {count} Workspace Files selected — bulk delete only",
                 foreground=colors["primary"]
             )
-            self.op_btn_rename.config(state=tk.DISABLED)
-            self.op_btn_delete.config(state=tk.NORMAL)
-            self.op_btn_export.config(state=tk.DISABLED)
-            self.op_btn_replace.config(state=tk.DISABLED)
+            self.op_btn_delete.config(text="Delete from Disk")
+            self._pack_btn(self.op_btn_delete)
         elif source == "wad":
             self.source_context_label.config(
                 text=f"▸ WAD Texture selected — operates inside the open WAD",
                 foreground=colors["accent"]
             )
-            self.op_btn_rename.config(state=tk.NORMAL)
-            self.op_btn_delete.config(state=tk.NORMAL)
-            self.op_btn_export.config(state=tk.NORMAL)
-            self.op_btn_replace.config(state=tk.NORMAL)
+            self.op_btn_rename.config(text="Rename Texture")
+            self._pack_btn(self.op_btn_rename)
+            self.op_btn_delete.config(text="Delete from WAD")
+            self._pack_btn(self.op_btn_delete)
+            self.op_btn_export.config(text="Export Texture")
+            self._pack_btn(self.op_btn_export)
+            self.op_btn_replace.config(text="Replace Texture")
+            self._pack_btn(self.op_btn_replace)
         elif source == "wad_bulk":
             self.source_context_label.config(
                 text=f"▸ {count} WAD Textures selected — bulk export/delete inside WAD",
                 foreground=colors["accent"]
             )
-            self.op_btn_rename.config(state=tk.DISABLED)
-            self.op_btn_delete.config(state=tk.NORMAL)
-            self.op_btn_export.config(state=tk.NORMAL)
-            self.op_btn_replace.config(state=tk.DISABLED)
+            self.op_btn_delete.config(text="Delete from WAD")
+            self._pack_btn(self.op_btn_delete)
+            self.op_btn_export.config(text="Export Textures")
+            self._pack_btn(self.op_btn_export)
         else:
             self.source_context_label.config(
                 text="Select an image to get started",
                 foreground=colors["subtext"]
             )
-            self._disable_all_op_buttons()
 
     def _make_checkerboard(self, w, h, cell=10):
         key = (w, h, cell)
@@ -1192,7 +1310,8 @@ class WADForgeApp:
 
     def on_op_export(self):
         source = self.current_preview_source
-        
+        ext = self.export_format.get()
+
         if source == "wad":
             name = self.current_preview_name
             target_path = self.target_wad_path.get()
@@ -1200,8 +1319,8 @@ class WADForgeApp:
                 return
             filename = filedialog.asksaveasfilename(
                 initialdir=self.workspace_dir.get(),
-                initialfile=f"{name}.bmp",
-                defaultextension=".bmp",
+                initialfile=f"{name}.{ext}",
+                defaultextension=f".{ext}",
                 filetypes=[("BMP Files", "*.bmp"), ("PNG Files", "*.png"), ("All Files", "*.*")],
                 title="Export Texture",
                 parent=self.root
@@ -1231,12 +1350,12 @@ class WADForgeApp:
                 return
             export_dir = filedialog.askdirectory(
                 initialdir=self.workspace_dir.get(),
-                title=f"Export {len(names)} Textures to Folder",
+                title=f"Export {len(names)} Textures to Folder ({ext.upper()})",
                 parent=self.root
             )
             if export_dir:
                 try:
-                    count = backend.export_wad_entries_bulk(target_path, names, export_dir, self.wad_format.get())
+                    count = backend.export_wad_entries_bulk(target_path, names, export_dir, self.wad_format.get(), ext=ext)
                     self.log(f"Exported {count} of {len(names)} textures to '{export_dir}'", "success")
                     messagebox.showinfo("Export Complete", f"Successfully exported {count} textures to:\n{export_dir}", parent=self.root)
                 except Exception as e:
@@ -1249,9 +1368,15 @@ class WADForgeApp:
         target_path = self.target_wad_path.get()
         
         if source == "wad" and target_path and os.path.exists(target_path):
+            try:
+                exp_w, exp_h = backend.get_wad_entry_dimensions(target_path, name)
+            except Exception:
+                exp_w, exp_h = None, None
+
+            dims_hint = f" (must be {exp_w}x{exp_h})" if exp_w else ""
             image_path = filedialog.askopenfilename(
                 initialdir=self.workspace_dir.get(),
-                title=f"Select Image to replace texture '{name}'",
+                title=f"Replace texture '{name}'{dims_hint} — select replacement image",
                 filetypes=[
                     ("All Supported Images", "*.bmp;*.png;*.tga;*.pcx;*.jpg;*.jpeg;*.gif"),
                     ("BMP Files", "*.bmp"), 
@@ -1264,11 +1389,17 @@ class WADForgeApp:
                 parent=self.root
             )
             if image_path:
+                if not messagebox.askyesno(
+                    "Confirm Replace",
+                    f"Replace texture '{name}' pixel data with '{os.path.basename(image_path)}'?\n\n"
+                    f"This will overwrite the texture data inside the WAD.",
+                    parent=self.root
+                ):
+                    return
                 try:
                     backend.replace_wad_entry(target_path, name, image_path, self.wad_format.get())
                     self.log(f"Replaced texture '{name}' inside WAD with '{os.path.basename(image_path)}'", "success")
                     self.refresh_wad()
-                    # Re-select the entry
                     for item in self.tree_wad.get_children():
                         vals = self.tree_wad.item(item, "values")
                         if vals and vals[0] == name:
