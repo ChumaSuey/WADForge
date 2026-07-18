@@ -9,17 +9,18 @@ Texture packer & WAD editor for Quake 1 (WAD2) and GoldSrc/HL (WAD3).
 - **Export** individual or batch textures from a WAD to images (BMP or PNG, configurable default)
 - **Replace** a texture inside a WAD in-place with dimension validation and confirmation prompt
 - **Rename / Delete** textures on disk (workspace) or inside the WAD, with context-aware button labels
-- **Convert** between WAD2 and WAD3 formats
-- **Texture preview** with zoom, 1:1 toggle, checkerboard alpha grid, and pixel coordinate info
-- **Search / filter** workspace images by name
+- **Convert** between WAD2 and WAD3 formats (button in header bar)
+- **Texture preview** with zoom (Ctrl+Wheel), 1:1 toggle, clickable Fit, checkerboard alpha grid, and pixel coordinate info
+- **Search / filter** workspace images **and WAD textures** by name in real-time
 - **Context-aware action buttons** — only applicable buttons are shown based on selection type
 - **Hover tooltips** on all action buttons explaining their function
-- **Settings panel** for persistent export format preference (BMP/PNG)
+- **Settings panel** for persistent export format preference (BMP/PNG) and workspace defaults
 - **Collapsible console log** with color-coded entries and toggle button
+- **Status validation** — warns on name truncation, dimension issues, and duplicate conflicts
 - Supports BMP, PNG, TGA, PCX, JPEG, GIF imports
 - Catppuccin Mocha dark theme
 - High DPI awareness for crisp rendering on Windows
-- Persistent settings via `config.json`
+- Persistent settings via `config.json` (auto-saved on workspace browse)
 
 ## Requirements
 
@@ -34,19 +35,21 @@ pip install Pillow
 python main.py
 ```
 
+On first launch, `config.json` is created automatically. See `templateconfig.json` for the expected format.
+
 ## Image of the Script
 
 <img width="1920" height="1020" alt="image" src="https://github.com/user-attachments/assets/a1830595-58f2-4342-beb0-fc9dc854ecbb" />
 
 ## Usage
 
-1. Set a **workspace folder** where your source images live, or restore defaults.
+1. Set a **workspace folder** where your source images live (Browse auto-saves your choice).
 2. **Select** or **Create** a target WAD file.
 3. Choose the **WAD Format** (WAD2 for Quake 1, WAD3 for Half-Life).
 4. Select images in the workspace panel and click **Pack Selected Textures** to build them into the WAD.
-5. Browse textures in the **WAD panel** — export, replace, rename, or delete as needed.
-6. Use **Convert Format** to swap between WAD2 / WAD3 architecture.
-7. Click **⚙ Settings** to change the default export format (BMP/PNG).
+5. Browse textures in the **WAD panel** — use the filter bar to search, export, replace, rename, or delete as needed.
+6. Use **↔ Convert** in the header bar to swap between WAD2 / WAD3 architecture.
+7. Click **⚙ Settings** to change default export format or restore workspace defaults.
 8. Click **☰ Console** to toggle the log panel.
 
 For full documentation see [Documentation.md](Documentation.md).
@@ -55,10 +58,12 @@ For full documentation see [Documentation.md](Documentation.md).
 
 ```
 WADForge/
-├── main.py       # Entry point — DPI awareness & Tk root
-├── GUI.py        # All tkinter UI code (WADForgeApp class)
-├── backend.py    # Core WAD I/O, mipmap compiler, business logic
-├── config.json   # Persisted settings (workspace path, export format)
+├── main.py              # Entry point — DPI awareness & Tk root
+├── GUI.py               # All tkinter UI code (WADForgeApp class)
+├── backend.py           # Core WAD I/O, mipmap compiler, business logic
+├── build_linux.sh       # Linux PyInstaller build script
+├── templateconfig.json  # Reference for config.json structure
+├── .gitignore
 └── Documentation.md
 ```
 

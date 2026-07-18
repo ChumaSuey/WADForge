@@ -21,34 +21,37 @@ pip install Pillow
 python main.py
 ```
 
+On first launch, `config.json` is created automatically. See `templateconfig.json` for the expected format.
+
 ---
 
 ## Interface Layout
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│  WADForge — Quake/HL Texture Manager   [☰ Console] [⚙ Set] │
-├─────────────────────────────────────────────────────────────┤
-│  Workspace Folder: [_________] [Browse] [Save] [Restore]   │
-│  Target WAD File:  [_________] [Select] [New] [Clear]      │
-│  WAD Format: [WAD2 ▼]  (WAD2=Quake, WAD3=Half-Life)  [↻]  │
-├──────────────────┬──────────────────┬───────────────────────┤
-│ Workspace Images  │ Target WAD Textures│   Texture Preview   │
-│ ┌──────────────┐ │ ┌───────────────┐ │  ┌─────────────────┐ │
-│ │ filename.bmp │ │ │ TEX_NAME      │ │  │                 │ │
-│ │ another.png  │ │ │ WALL01        │ │  │   Preview +     │ │
-│ │ ...          │ │ │ ...           │ │  │   zoom controls │ │
-│ └──────────────┘ │ └───────────────┘ │  └─────────────────┘ │
-│ [Select All] [Clear] │                 │  [Rename] [Delete]  │
-│                      │                 │  [Export] [Replace] │
-├──────────────────────┴─────────────────┴─────────────────────┤
-│ Pack Selected Textures ◄─────────────────────────────────────│
-├─────────────────────────────────────────────────────────────┤
-│  ☰ Console — Execution Log / Warnings              [Clear]  │
-└─────────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────┐
+│ WADForge — Quake/HL Texture Manager  [↔ Convert] [☰ Console] [⚙]│
+├──────────────────────────────────────────────────────────────────┤
+│ Workspace Folder: [_____________] [Browse]                       │
+│ Target WAD File:  [_____________] [Select] [New] [Clear]         │
+│ WAD Format: [WAD2 ▼]  (WAD2=Quake, WAD3=Half-Life)  [↻ Refresh] │
+├────────────────┬────────────────────┬────────────────────────────┤
+│Workspace Images│ Target WAD Textures│     Texture Preview        │
+│ ┌────────────┐ │ [Filter: ______]   │  ┌───────────────────────┐ │
+│ │ file1.bmp  │ │ ┌────────────────┐ │  │                       │ │
+│ │ file2.png  │ │ │ TEX_NAME       │ │  │   Preview +           │ │
+│ │ ...        │ │ │ WALL01         │ │  │   zoom controls       │ │
+│ └────────────┘ │ │ ...            │ │  └───────────────────────┘ │
+│[Select] [Clear]│ └────────────────┘ │ [−] [Fit] [+] [1:1]  info │
+│                │                    │ [Rename] [Delete] [Export] │
+│                │                    │ [Replace]                  │
+├────────────────┴────────────────────┴────────────────────────────┤
+│ [Pack Selected Textures]  ████████████████░░░░░░░░░░ 60%         │
+├──────────────────────────────────────────────────────────────────┤
+│ ☰ Console — Execution Log / Warnings                   [Clear]   │
+└──────────────────────────────────────────────────────────────────┘
 ```
 
-The action buttons in the preview panel are **context-aware** — only buttons that apply to your current selection are shown.
+The action buttons in the preview panel are **context-aware** — only buttons that apply to your current selection are shown. The **Convert Format** button lives in the header bar.
 
 ---
 
@@ -60,21 +63,24 @@ Shows all supported image files in your workspace folder. Columns: filename, tex
 
 - **Filter**: Type in the filter box to search by filename or texture name.
 - **Select All / Clear Selection**: Quick-select or deselect all workspace entries.
-- **Validation**: Green = valid, yellow = duplicate name conflict, red = format/size issues.
+- **Browse** button auto-saves your workspace path to `config.json`.
+- **Validation status** is color-coded and centered (see [Status Messages](#status-messages)).
 
 ### Target WAD Textures (middle panel)
 
 Shows all texture entries inside the currently loaded WAD file. Columns: texture name, resolution, and byte size.
 
+- **Filter**: Type in the filter box to search by texture name in real-time.
 - Click a column header to sort by that column.
-- Use **Convert Format** to toggle between WAD2 and WAD3 for the loaded file.
+- Convert format is now in the header bar (**↔ Convert**).
 
 ### Texture Preview (right panel)
 
 Displays the selected texture with:
 - **Checkerboard background** to visualize transparency.
-- **Zoom controls**: `−` / `+` / `1:1` buttons, plus mouse wheel.
-- **Pixel info**: X, Y coordinates and RGBA values under the cursor.
+- **Zoom controls**: `−` / `Fit` / `+` / `1:1` — the Fit button is clickable to re-fit at any time.
+- **Ctrl + Mouse Wheel** zooms in/out (hint shown in the zoom bar when an image is loaded).
+- **Pixel info**: X, Y coordinates and RGBA/index values under the cursor.
 
 ---
 
@@ -117,9 +123,28 @@ All buttons are hidden. A label shows "Select an image to get started".
 
 ---
 
+## Status Messages
+
+The workspace panel's **Status** column validates each image before packing:
+
+| Status | Meaning |
+|--------|---------|
+| `Ready` | Valid, no issues |
+| `Ready (Liquid Anim)` | Valid, detected as animated liquid texture |
+| `WARN: Name truncated.` | Filename exceeded 15 chars, texname was trimmed |
+| `WARN: Texture over 512px.` | Dimensions > 512px (may impact performance) |
+| `CONFLICT: Duplicate of '{texname}'` | Two files resolve to the same 15-char texture name slot |
+| `ERR: Dimensions not divisible by 16.` | Width or height not a multiple of 16 |
+| `ERR: Empty alpha key name.` | Filename filtered down to empty string |
+| `ERR: {message}` | Corrupted or unreadable image |
+
+Warnings (yellow) don't block packing. Errors (red) and conflicts (red) do.
+
+---
+
 ## Packing Textures
 
-1. Set your **workspace folder** to a directory containing your source images.
+1. Set your **workspace folder** to a directory containing your source images (Browse auto-saves).
 2. Open or create a **target WAD file**.
 3. Choose the desired **WAD Format** (WAD2 or WAD3).
 4. Select images in the workspace panel (multi-select with Ctrl/Cmd+click or Shift+click).
@@ -163,36 +188,42 @@ Select multiple WAD textures and click **Export Textures**. Choose a destination
 
 ## Settings
 
-Click **⚙ Settings** in the top-right header to open the settings dialog.
+Click **⚙ Settings** in the header bar to open the settings dialog.
 
-### Default Export Format
+### Export Format
 
 Choose **BMP** or **PNG** as the default format for:
 - **Bulk exports** — always uses this format
 - **Single exports** — the file dialog defaults to this format (you can still change it per-export)
 
-The setting is saved to `config.json` and persists between sessions.
+### Workspace
+
+Browse auto-saves your workspace folder path. The Settings dialog provides a **Restore Default Workspace** button to reset it to the application directory.
+
+Settings are persisted to `config.json` and survive restarts. Save failures are logged to the console.
 
 ---
 
 ## Console Log
 
-The console log is hidden by default for a cleaner interface. Click **☰ Console** in the top-right header to show/hide it.
+The console log is hidden by default for a cleaner interface. Click **☰ Console** in the header bar to show/hide it.
 
 - Log entries are color-coded: white (info), yellow (warning), red (error), green (success).
 - Click **Clear Log** to reset the console.
 - The log accumulates messages even when hidden.
+- Configuration save failures are logged here.
 
 ---
 
 ## WAD Format Conversion
 
-The **Convert Format** button toggles between WAD2 and WAD3 for the loaded WAD:
+The **↔ Convert** button in the header bar toggles between WAD2 and WAD3 for the loaded WAD:
 
 - **WAD2 → WAD3**: Appends a 256-color palette to each texture lump (placeholder gray ramp). Pixel data is untouched.
 - **WAD3 → WAD2**: Strips the palette from each texture lump. Pixel data is untouched.
 - **WAD2 → WAD3 → WAD2** is lossless — the file is byte-for-byte restored.
 - A confirmation dialog asks before saving, as the WAD file is overwritten.
+- If no WAD is loaded, a warning dialog reminds you to open one.
 
 ---
 
@@ -221,25 +252,27 @@ When packing textures in WAD2 mode, colors are automatically remapped to the Qua
 
 ## Configuration File
 
-`config.json` stores your preferences:
+`config.json` stores your preferences and is **auto-created** on first launch. See `templateconfig.json` for a clean reference. This file is git-ignored — each user has their own.
 
 ```json
 {
-    "workspace_dir": "C:/path/to/your/images",
+    "workspace_dir": ".",
     "export_format": "bmp"
 }
 ```
 
-- **workspace_dir**: Default workspace folder path.
+- **workspace_dir**: Default workspace folder path (auto-saved on Browse).
 - **export_format**: `"bmp"` or `"png"` — default export format.
 
-Click **Save As Default** next to the workspace path to persist your folder. Settings are auto-saved when changed in the Settings dialog.
+If the file is missing or corrupted, sensible defaults are used and the app runs normally.
 
 ---
 
 ## Tips
 
 - **Hover over any action button** to see a tooltip explaining what it does.
+- **Ctrl + Mouse Wheel** zooms the preview canvas in/out.
+- **Click the Fit button** in the zoom bar to re-fit the texture to the canvas at any time.
 - **Double-click** a workspace image to preview it.
-- Use **right-click** on tree items for quick access (context menus coming soon).
-- The **status column** in the workspace panel warns you about naming conflicts, unsupported formats, or resolution issues before packing.
+- The **status column** warns you about naming conflicts, truncation, or resolution issues before packing.
+- Use the **filter bar** in both panels to quickly find specific images or textures.

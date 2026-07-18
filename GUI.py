@@ -81,10 +81,12 @@ class WADForgeApp:
         self.target_wad_path = tk.StringVar()
         self.wad_format = tk.StringVar(value="WAD2")
         self.search_query = tk.StringVar()
+        self.wad_search_query = tk.StringVar()
         self.export_format = tk.StringVar(value=settings.get("export_format", "bmp"))
         
         # Internal caching
         self.detected_images = [] # List of dicts representing files
+        self.wad_entries = []       # Cached WAD entry list for filtering
         self.wad_contents = []  # List of dicts representing lumps
         
         # Preview state variables
@@ -203,11 +205,14 @@ class WADForgeApp:
         subtitle = ttk.Label(header_frame, text="Texture packer & WAD editor for GoldSrc & idTech games", style="Sub.TLabel")
         subtitle.pack(side=tk.LEFT, padx=15, pady=(6, 0))
 
+        self.settings_btn = ttk.Button(header_frame, text="⚙ Settings", command=self.open_settings)
+        self.settings_btn.pack(side=tk.RIGHT, padx=2)
+
         self.console_btn = ttk.Button(header_frame, text="☰ Console", command=self.toggle_console)
         self.console_btn.pack(side=tk.RIGHT, padx=2)
 
-        self.settings_btn = ttk.Button(header_frame, text="⚙ Settings", command=self.open_settings)
-        self.settings_btn.pack(side=tk.RIGHT, padx=2)
+        self.convert_wad_btn = ttk.Button(header_frame, text="↔ Convert", command=self.convert_wad_format)
+        self.convert_wad_btn.pack(side=tk.RIGHT, padx=2)
 
         # ----------------- Selection Card (Paths & Configuration) -----------------
         paths_card = ttk.Frame(self.root, style="Card.TFrame")
@@ -225,12 +230,6 @@ class WADForgeApp:
         
         ws_browse = ttk.Button(ws_btn_frame, text="Browse...", command=self.browse_workspace)
         ws_browse.pack(side=tk.LEFT, padx=(0, 2))
-        
-        ws_save = ttk.Button(ws_btn_frame, text="Save As Default", command=self.save_workspace_settings)
-        ws_save.pack(side=tk.LEFT, padx=2)
-        
-        ws_reset = ttk.Button(ws_btn_frame, text="Restore Default", command=self.restore_workspace_default)
-        ws_reset.pack(side=tk.LEFT, padx=(2, 0))
         
         # Target WAD Path Row
         wad_label = ttk.Label(paths_card, text="Target WAD File:", style="Card.TLabel")
@@ -309,7 +308,7 @@ class WADForgeApp:
         self.tree_images.column("texname", width=110)
         self.tree_images.column("res", width=80, anchor="center")
         self.tree_images.column("format", width=85, anchor="center")
-        self.tree_images.column("status", width=160)
+        self.tree_images.column("status", width=240, anchor="center")
         
         image_scroll_y = ttk.Scrollbar(tree_frame_images, orient=tk.VERTICAL, command=self.tree_images.yview)
         self.tree_images.configure(yscrollcommand=image_scroll_y.set)
@@ -342,11 +341,14 @@ class WADForgeApp:
         
         wad_title = ttk.Label(wad_header, text="Target WAD Textures", style="Header.TLabel")
         wad_title.pack(side=tk.LEFT, pady=5)
-        
-        # WAD Convert format button
-        self.convert_wad_btn = ttk.Button(wad_header, text="Convert Format", command=self.convert_wad_format)
-        self.convert_wad_btn.pack(side=tk.LEFT, padx=10, pady=2)
-        
+
+        wad_search_label = ttk.Label(wad_header, text="Filter:", style="Card.TLabel")
+        wad_search_label.pack(side=tk.RIGHT, padx=5)
+
+        wad_search_entry = ttk.Entry(wad_header, textvariable=self.wad_search_query, width=18)
+        wad_search_entry.pack(side=tk.RIGHT, padx=5)
+        self.wad_search_query.trace_add("write", lambda *args: self.filter_wad())
+
         self.wad_lbl = ttk.Label(wad_header, text="No WAD Loaded", style="Card.TLabel")
         self.wad_lbl.pack(side=tk.RIGHT, padx=5)
         
@@ -392,6 +394,9 @@ class WADForgeApp:
         self.preview_canvas.pack(fill=tk.BOTH, expand=True, padx=1, pady=1)
         self.preview_canvas.bind("<Configure>", self.on_preview_frame_resize)
         self.preview_canvas.bind("<Motion>", self.on_preview_motion)
+        self.preview_canvas.bind("<Control-MouseWheel>", self._on_mousewheel_zoom)
+        self.preview_canvas.bind("<Control-Button-4>", lambda e: self.zoom_in())
+        self.preview_canvas.bind("<Control-Button-5>", lambda e: self.zoom_out())
         
         self._canvas_placeholder = self.preview_canvas.create_text(
             200, 100, text="Select an image\nto preview",
@@ -409,8 +414,8 @@ class WADForgeApp:
                                         command=self.zoom_out, state=tk.DISABLED)
         self.zoom_out_btn.pack(side=tk.LEFT, padx=1)
         
-        self.zoom_label = ttk.Label(zoom_frame, text="Fit", style="Card.TLabel",
-                                     width=5, anchor="center")
+        self.zoom_label = ttk.Button(zoom_frame, text="Fit", width=5,
+                                      command=self.zoom_fit, state=tk.DISABLED)
         self.zoom_label.pack(side=tk.LEFT, padx=1)
         
         self.zoom_in_btn = ttk.Button(zoom_frame, text="+", width=3,
@@ -424,6 +429,11 @@ class WADForgeApp:
         self.pixel_info_lbl = ttk.Label(zoom_frame, text="", style="Card.TLabel",
                                          font=("Segoe UI", 8))
         self.pixel_info_lbl.pack(side=tk.RIGHT, padx=5)
+
+        self.zoom_hint_lbl = ttk.Label(zoom_frame, text="Ctrl+Wheel to zoom",
+                                        style="Card.TLabel", font=("Segoe UI", 8))
+        self.zoom_hint_lbl.pack(side=tk.RIGHT, padx=5)
+        self.zoom_hint_lbl.pack_forget()
         
         # Metadata Frame
         meta_frame = ttk.Frame(preview_panel, style="Card.TFrame")
@@ -553,24 +563,35 @@ class WADForgeApp:
         dialog.configure(bg=self.colors["card"])
 
         content = ttk.Frame(dialog, style="Card.TFrame")
-        content.pack(fill=tk.BOTH, expand=True, padx=20, pady=15)
+        content.pack(fill=tk.BOTH, expand=True, padx=15, pady=12)
 
         ttk.Label(content, text="Default Export Format:", style="Card.TLabel",
-                   font=("Segoe UI", 10, "bold")).pack(anchor="w", pady=(0, 5))
+                   font=("Segoe UI", 10, "bold")).pack(anchor="w", pady=(0, 4))
 
         fmt_combo = ttk.Combobox(content, textvariable=self.export_format,
                                   values=["bmp", "png"], state="readonly", width=10)
         fmt_combo.pack(anchor="w")
 
         ttk.Label(content, text="Applied to bulk exports.\nSingle exports let you choose per file.",
-                   style="Card.TLabel", font=("Segoe UI", 8)).pack(anchor="w", pady=(10, 0))
+                   style="Card.TLabel", font=("Segoe UI", 8)).pack(anchor="w", pady=(8, 0))
+
+        sep = tk.Frame(content, height=1, bg=self.colors["border"])
+        sep.pack(fill=tk.X, pady=(14, 10))
+
+        ttk.Label(content, text="Workspace:", style="Card.TLabel",
+                   font=("Segoe UI", 10, "bold")).pack(anchor="w", pady=(0, 4))
+
+        ttk.Label(content, text="Browse auto-saves your workspace folder.\nRestore defaults to the app directory.",
+                   style="Card.TLabel", font=("Segoe UI", 8)).pack(anchor="w")
+
+        ttk.Button(content, text="Restore Default Workspace",
+                   command=self.restore_workspace_default).pack(anchor="center", pady=(8, 0))
 
         btn_row = ttk.Frame(content, style="Card.TFrame")
-        btn_row.pack(fill=tk.X, pady=(15, 0))
+        btn_row.pack(pady=(16, 0))
 
-        ttk.Button(btn_row, text="Save", style="Primary.TButton",
-                   command=lambda: self._save_settings_and_close(dialog)).pack(side=tk.RIGHT, padx=5)
-        ttk.Button(btn_row, text="Cancel", command=dialog.destroy).pack(side=tk.RIGHT, padx=5)
+        ttk.Button(btn_row, text="Close", style="Primary.TButton",
+                   command=lambda: self._close_settings(dialog)).pack()
 
         dialog.update_idletasks()
         w = dialog.winfo_reqwidth()
@@ -579,15 +600,17 @@ class WADForgeApp:
         py = self.root.winfo_rooty() + (self.root.winfo_height() - h) // 2
         dialog.geometry(f"+{px}+{py}")
 
-    def _save_settings_and_close(self, dialog):
-        backend.save_settings(self.workspace_dir.get(), self.export_format.get())
+    def _close_settings(self, dialog):
+        if not backend.save_settings(self.workspace_dir.get(), self.export_format.get()):
+            self.log("Failed to save settings to config.json", "warning")
         dialog.destroy()
-        self.log(f"Export format set to '{self.export_format.get().upper()}'", "success")
 
     def browse_workspace(self):
         dir_path = filedialog.askdirectory(initialdir=self.workspace_dir.get(), title="Select Workspace Folder")
         if dir_path:
             self.workspace_dir.set(dir_path)
+            if not backend.save_settings(dir_path, self.export_format.get()):
+                self.log("Failed to persist workspace path to config.json", "warning")
             self.refresh_all()
 
     def save_workspace_settings(self):
@@ -801,7 +824,9 @@ class WADForgeApp:
     def refresh_wad(self):
         for item in self.tree_wad.get_children():
             self.tree_wad.delete(item)
-            
+        self.wad_entries = []
+        self.wad_search_query.set("")
+        
         target = self.target_wad_path.get()
         if not target:
             self.wad_lbl.config(text="No WAD Loaded")
@@ -817,17 +842,27 @@ class WADForgeApp:
             
             self.wad_format.set(loaded_format)
             self.wad_lbl.config(text=f"{loaded_format} loaded ({len(entries_list)} textures)")
-            
-            for entry_info in entries_list:
-                self.tree_wad.insert("", tk.END, values=(
-                    entry_info["name"],
-                    entry_info["res"],
-                    entry_info["size"]
-                ))
+            self.wad_entries = entries_list
+            self.filter_wad()
                 
         except Exception as e:
             self.wad_lbl.config(text="Error Reading File")
             self.log(f"Error loading target WAD: {str(e)}", "error")
+
+    def filter_wad(self):
+        for item in self.tree_wad.get_children():
+            self.tree_wad.delete(item)
+
+        query = self.wad_search_query.get().lower().strip()
+
+        for entry in self.wad_entries:
+            if query and query not in entry["name"].lower():
+                continue
+            self.tree_wad.insert("", tk.END, values=(
+                entry["name"],
+                entry["res"],
+                entry["size"]
+            ))
 
     # ----------------------------------------------------------------------
     # Preview helpers
@@ -970,6 +1005,13 @@ class WADForgeApp:
         self._update_zoom_label()
         self.update_preview_display()
 
+    def _on_mousewheel_zoom(self, event):
+        if self.current_preview_image:
+            if event.delta > 0:
+                self.zoom_in()
+            else:
+                self.zoom_out()
+
     def _update_zoom_label(self):
         if self.zoom_fit_enabled:
             self.zoom_label.config(text="Fit")
@@ -981,6 +1023,12 @@ class WADForgeApp:
         self.zoom_out_btn.config(state=state)
         self.zoom_in_btn.config(state=state)
         self.zoom_fit_btn.config(state=state)
+        self.zoom_label.config(state=state)
+        if enable:
+            if not self.zoom_hint_lbl.winfo_ismapped():
+                self.zoom_hint_lbl.pack(side=tk.RIGHT, padx=5, before=self.pixel_info_lbl)
+        else:
+            self.zoom_hint_lbl.pack_forget()
 
     # ----------------------------------------------------------------------
     # Selection & Preview Handlers

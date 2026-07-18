@@ -224,7 +224,9 @@ def scan_workspace_images(folder):
         base_name, _ = os.path.splitext(fname)
         
         # Safe translation filter mapping for classic texture indexing standard parameters
-        texname = re.sub(r'[^a-zA-Z0-9_\-*{}#=+\[\]]', '', base_name).lower()[:15]
+        cleaned = re.sub(r'[^a-zA-Z0-9_\-*{}#=+\[\]]', '', base_name).lower()
+        texname = cleaned[:15]
+        name_truncated = len(cleaned) > 15
         
         if not texname:
             detected.append({"filename": fname, "texname": "unnamed", "path": fpath, "res": "0x0", "format": "Unknown", "valid": False, "status": "ERR: Empty alpha key name."})
@@ -244,17 +246,22 @@ def scan_workspace_images(folder):
                 status = "ERR: Dimensions not divisible by 16."
                 valid = False
             elif w > 512 or h > 512:
-                status = "WARN: Oversized texture boundary asset map."
+                status = "WARN: Texture over 512px."
                 warnings.append(("warning", f"Asset image '{fname}' dimensions exceed optimal real-time bounds ({res_str})."))
                 
             # Scan and track classic liquid sequence groups
             liquid_type = analyze_liquid_texture_name(texname)
             if liquid_type and valid:
                 status = "Ready (Liquid Anim)"
+            
+            # Warn on texture name truncation (WAD limit is 15 characters)
+            if name_truncated and valid:
+                status = "WARN: Name truncated."
+                warnings.append(("warning", f"Asset image '{fname}' name truncated to 15 chars for WAD compatibility."))
                 
             # Duplicate detection inside workspace tracking
             if texname in seen_texnames:
-                status = f"CONFLICT: Maps to same slot as '{seen_texnames[texname]}'"
+                status = f"CONFLICT: Duplicate of '{texname}'"
                 valid = False
             else:
                 seen_texnames[texname] = fname
@@ -262,7 +269,7 @@ def scan_workspace_images(folder):
             detected.append({"filename": fname, "texname": texname, "path": fpath, "res": res_str, "format": img_format, "valid": valid, "status": status})
             
         except Exception as e:
-            detected.append({"filename": fname, "texname": texname, "path": fpath, "res": "0x0", "format": "Corrupted", "valid": False, "status": f"ERR: {str(e)}"})
+            detected.append({"filename": fname, "texname": texname, "path": fpath, "res": "0x0", "format": "Corrupted", "valid": False, "status": f"ERR: {str(e)[:60]}"})
             
     return detected, warnings
 
