@@ -42,7 +42,7 @@ On first launch, `config.json` is created automatically. See `templateconfig.jso
 
 ## Image of the Script
 
-<img width="1920" height="1020" alt="image" src="https://github.com/user-attachments/assets/ba877e7c-03d8-44b8-bafb-06ed99a8e63c" />
+<img width="1920" height="1020" alt="image" src="https://github.com/user-attachments/assets/3632a494-3406-46df-a8e9-47db6948ed4d" />
 
 
 ## Usage
