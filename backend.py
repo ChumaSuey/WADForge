@@ -29,7 +29,7 @@ def load_settings():
     If corrupted or not found, falls back safely to executable directory by default.
     """
     default_dir = get_executable_dir()
-    default_settings = {"workspace_dir": default_dir, "export_format": "bmp"}
+    default_settings = {"workspace_dir": default_dir, "export_format": "bmp", "last_wad_path": ""}
     
     if not os.path.exists(CONFIG_FILE):
         return default_settings
@@ -41,14 +41,24 @@ def load_settings():
                 data["workspace_dir"] = default_dir
             if "export_format" not in data:
                 data["export_format"] = "bmp"
+            if "last_wad_path" not in data:
+                data["last_wad_path"] = ""
             return data
     except Exception:
         return default_settings
 
-def save_settings(workspace_dir, export_format="bmp"):
-    """Saves the target workspace folder path and export format explicitly into config.json."""
+def save_settings(workspace_dir, export_format="bmp", last_wad_path=None):
+    """Saves the target workspace folder path, export format, and optionally last WAD path into config.json."""
     try:
-        data = {"workspace_dir": workspace_dir, "export_format": export_format}
+        if last_wad_path is None and os.path.exists(CONFIG_FILE):
+            try:
+                with open(CONFIG_FILE, "r", encoding="utf-8") as f:
+                    existing = json.load(f)
+                last_wad_path = existing.get("last_wad_path", "")
+            except Exception:
+                last_wad_path = ""
+
+        data = {"workspace_dir": workspace_dir, "export_format": export_format, "last_wad_path": last_wad_path or ""}
         with open(CONFIG_FILE, "w", encoding="utf-8") as f:
             json.dump(data, f, indent=4, ensure_ascii=False)
         return True
@@ -58,7 +68,7 @@ def save_settings(workspace_dir, export_format="bmp"):
 def restore_default_settings():
     """Drops the active configurations and reverts settings safely back to defaults."""
     default_dir = get_executable_dir()
-    save_settings(default_dir, "bmp")
+    save_settings(default_dir, "bmp", last_wad_path="")
     return default_dir
 
 # ----------------------------------------------------------------------

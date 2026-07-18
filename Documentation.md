@@ -30,11 +30,11 @@ On first launch, `config.json` is created automatically. See `templateconfig.jso
 
 ```
 ┌──────────────────────────────────────────────────────────────────┐
-│ WADForge — Quake/HL Texture Manager  [↔ Convert] [☰ Console] [⚙]│
+│ WADForge — Quake/HL Texture Manager  [⌨ Hotkeys] [↔ Convert] [☰ Console] [⚙ Settings]│
 ├──────────────────────────────────────────────────────────────────┤
 │ Workspace Folder: [_____________] [Browse]                       │
-│ Target WAD File:  [_____________] [Select] [New] [Clear]         │
-│ WAD Format: [WAD2 ▼]  (WAD2=Quake, WAD3=Half-Life)  [↻ Refresh] │
+│ Target WAD File:  [_____________] [Select] [New] [Clear] [⚡]    │
+│ WAD Format: [WAD2 ▼]  (WAD2=Quake, WAD3=Half-Life)  [Refresh (F5)]│
 ├────────────────┬────────────────────┬────────────────────────────┤
 │Workspace Images│ Target WAD Textures│     Texture Preview        │
 │ ┌────────────┐ │ [Filter: ______]   │  ┌───────────────────────┐ │
@@ -73,6 +73,7 @@ Shows all texture entries inside the currently loaded WAD file. Columns: texture
 
 - **Filter**: Type in the filter box to search by texture name in real-time.
 - Click a column header to sort by that column.
+- The loaded WAD format and texture count is shown in the panel title (e.g., "Target WAD Textures — WAD2 loaded (5 textures)").
 - Convert format is now in the header bar (**↔ Convert**).
 
 ### Texture Preview (right panel)
@@ -109,7 +110,7 @@ The four buttons below the preview are **context-aware**. They appear or hide ba
 | Rename Texture | Renames the texture entry inside the WAD (max 15 characters) |
 | Delete from WAD | Removes the texture lump from the WAD (with confirmation) |
 | Export Texture | Saves the decoded texture as BMP or PNG to a chosen location |
-| Replace Texture | Opens a file dialog; replaces the texture's pixel data with an external image (must have the exact same dimensions — the dialog title shows the required size) |
+| Replace | Opens a file dialog; replaces the texture's pixel data with an external image (must have the exact same dimensions — the dialog title shows the required size) |
 
 ### Multiple WAD Textures Selected
 
@@ -168,7 +169,7 @@ Select multiple WAD textures and click **Export Textures**. Choose a destination
 
 ## Replacing Textures
 
-1. Select a WAD texture and click **Replace Texture**.
+1. Select a WAD texture and click **Replace**.
 2. The file dialog title shows the required dimensions (e.g., "must be 256x256").
 3. Choose a replacement image file.
 4. A confirmation prompt appears — confirm to proceed.
@@ -201,6 +202,10 @@ Choose **BMP** or **PNG** as the default format for:
 ### Workspace
 
 Browse auto-saves your workspace folder path. The Settings dialog provides a **Restore Default Workspace** button to reset it to the application directory.
+
+### Quick WAD Loading
+
+The **⚡ Quick Load** button in the WAD row remembers the last WAD you opened or created and reloads it instantly. The Settings dialog provides a **Clear Quick WAD Loading** button to erase the stored path. Useful for clearing stale or moved files.
 
 Settings are persisted to `config.json` and survive restarts. Save failures are logged to the console.
 
@@ -259,12 +264,14 @@ When packing textures in WAD2 mode, colors are automatically remapped to the Qua
 ```json
 {
     "workspace_dir": ".",
-    "export_format": "bmp"
+    "export_format": "bmp",
+    "last_wad_path": ""
 }
 ```
 
 - **workspace_dir**: Default workspace folder path (auto-saved on Browse).
 - **export_format**: `"bmp"` or `"png"` — default export format.
+- **last_wad_path**: Path of the most recently opened or created WAD, used by the ⚡ Quick Load button.
 
 If the file is missing or corrupted, sensible defaults are used and the app runs normally.
 
@@ -273,10 +280,14 @@ If the file is missing or corrupted, sensible defaults are used and the app runs
 ## Tips
 
 - **Hover over any action button** to see a tooltip explaining what it does.
-- **Ctrl + Mouse Wheel** zooms the preview canvas in/out.
 - **F5** refreshes all panels (workspace, WAD contents, and preview).
 - **Delete key** deletes the currently selected texture/entry (not when focused on a text field).
-- **Click the Fit button** in the zoom bar to re-fit the texture to the canvas at any time.
+- **Ctrl + Mouse Wheel** zooms the preview canvas in/out.
+- **Ctrl + Button4 / Button5** zooms on Linux.
 - **Double-click** a workspace image to preview it.
+- **⌨ Hotkeys** button in the header bar displays all keyboard shortcuts in a reference dialog.
+- **⚡ Quick Load** reloads the last WAD you worked on in one click; clear stale paths via Settings.
+- **Click the Fit button** in the zoom bar to re-fit the texture to the canvas at any time.
 - The **status column** warns you about naming conflicts, truncation, or resolution issues before packing.
+- WAD loaded status is shown in the **Target WAD Textures** title bar — e.g., "WAD2 loaded (12 textures)".
 - Use the **filter bar** in both panels to quickly find specific images or textures.

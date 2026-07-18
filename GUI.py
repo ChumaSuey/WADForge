@@ -83,6 +83,7 @@ class WADForgeApp:
         self.search_query = tk.StringVar()
         self.wad_search_query = tk.StringVar()
         self.export_format = tk.StringVar(value=settings.get("export_format", "bmp"))
+        self.last_wad_path = tk.StringVar(value=settings.get("last_wad_path", ""))
         
         # Internal caching
         self.detected_images = [] # List of dicts representing files
@@ -214,6 +215,9 @@ class WADForgeApp:
         self.convert_wad_btn = ttk.Button(header_frame, text="↔ Convert", command=self.convert_wad_format)
         self.convert_wad_btn.pack(side=tk.RIGHT, padx=2)
 
+        self.hotkeys_btn = ttk.Button(header_frame, text="⌨ Hotkeys", command=self.show_hotkeys)
+        self.hotkeys_btn.pack(side=tk.RIGHT, padx=2)
+
         # ----------------- Selection Card (Paths & Configuration) -----------------
         paths_card = ttk.Frame(self.root, style="Card.TFrame")
         paths_card.pack(fill=tk.X, padx=15, pady=5)
@@ -250,6 +254,12 @@ class WADForgeApp:
         
         wad_clear = ttk.Button(wad_btn_frame, text="Clear", command=self.clear_wad)
         wad_clear.pack(side=tk.LEFT)
+
+        self.wad_quickload_btn = ttk.Button(wad_btn_frame, text="⚡", command=self.quick_load_wad)
+        self.wad_quickload_btn.pack(side=tk.LEFT, padx=(5, 0))
+        ToolTip(self.wad_quickload_btn, "Quick load the last WAD you worked on")
+        if not self.last_wad_path.get():
+            self.wad_quickload_btn.config(state="disabled")
         
         # Format Selector & Refresh
         cfg_frame = ttk.Frame(paths_card)
@@ -266,7 +276,7 @@ class WADForgeApp:
         info_label = ttk.Label(cfg_frame, text="(WAD2 = Quake 1, WAD3 = Half-Life)", style="Sub.TLabel")
         info_label.pack(side=tk.LEFT, padx=10)
         
-        refresh_btn = ttk.Button(cfg_frame, text="Refresh Lists", command=self.refresh_all)
+        refresh_btn = ttk.Button(cfg_frame, text="Refresh Lists (F5)", command=self.refresh_all)
         refresh_btn.pack(side=tk.RIGHT, padx=5)
         
         paths_card.columnconfigure(1, weight=1)
@@ -339,8 +349,8 @@ class WADForgeApp:
         wad_header = ttk.Frame(wad_panel, style="Header.TFrame")
         wad_header.pack(fill=tk.X, padx=5, pady=5)
         
-        wad_title = ttk.Label(wad_header, text="Target WAD Textures", style="Header.TLabel")
-        wad_title.pack(side=tk.LEFT, pady=5)
+        self.wad_title = ttk.Label(wad_header, text="Target WAD Textures", style="Header.TLabel")
+        self.wad_title.pack(side=tk.LEFT, pady=5)
 
         wad_search_label = ttk.Label(wad_header, text="Filter:", style="Card.TLabel")
         wad_search_label.pack(side=tk.RIGHT, padx=5)
@@ -349,8 +359,7 @@ class WADForgeApp:
         self.wad_search_entry.pack(side=tk.RIGHT, padx=5)
         self.wad_search_query.trace_add("write", lambda *args: self.filter_wad())
 
-        self.wad_lbl = ttk.Label(wad_header, text="No WAD Loaded", style="Card.TLabel")
-        self.wad_lbl.pack(side=tk.RIGHT, padx=5)
+
         
         # WAD Treeview
         tree_frame_wad = ttk.Frame(wad_panel)
@@ -589,6 +598,22 @@ class WADForgeApp:
         ttk.Button(content, text="Restore Default Workspace",
                    command=self.restore_workspace_default).pack(anchor="center", pady=(8, 0))
 
+        sep2 = tk.Frame(content, height=1, bg=self.colors["border"])
+        sep2.pack(fill=tk.X, pady=(14, 10))
+
+        ttk.Label(content, text="Quick WAD Loading:", style="Card.TLabel",
+                   font=("Segoe UI", 10, "bold")).pack(anchor="w", pady=(0, 4))
+
+        ttk.Label(content, text="Remembers your last loaded WAD for the ⚡ button.\nClearing removes the stored path.",
+                   style="Card.TLabel", font=("Segoe UI", 8)).pack(anchor="w")
+
+        clear_qwl_btn = ttk.Button(content, text="Clear Quick WAD Loading",
+                                    command=self.clear_quickload)
+        clear_qwl_btn.pack(anchor="center", pady=(8, 0))
+        if not self.last_wad_path.get():
+            clear_qwl_btn.config(state="disabled")
+        self._qwl_clear_btn = clear_qwl_btn
+
         btn_row = ttk.Frame(content, style="Card.TFrame")
         btn_row.pack(pady=(16, 0))
 
@@ -606,6 +631,52 @@ class WADForgeApp:
         if not backend.save_settings(self.workspace_dir.get(), self.export_format.get()):
             self.log("Failed to save settings to config.json", "warning")
         dialog.destroy()
+
+    def show_hotkeys(self):
+        dialog = tk.Toplevel(self.root)
+        dialog.title("Keyboard Shortcuts")
+        dialog.resizable(False, False)
+        dialog.transient(self.root)
+        dialog.grab_set()
+        dialog.configure(bg=self.colors["card"])
+
+        content = ttk.Frame(dialog, style="Card.TFrame")
+        content.pack(fill=tk.BOTH, expand=True, padx=24, pady=28)
+
+        hotkeys = [
+            ("F5", "Refresh all panels"),
+            ("Delete", "Delete selected texture\n(when focus not in a text field)"),
+            ("Ctrl + MouseWheel", "Zoom preview in/out"),
+            ("Ctrl + Button4 / Button5", "Zoom preview in/out (Linux)"),
+            ("Double-click", "Open image in system viewer"),
+        ]
+
+        for i, (key, desc) in enumerate(hotkeys):
+            row = ttk.Frame(content, style="Card.TFrame")
+            row.pack(fill=tk.X, pady=(0, 12) if i < len(hotkeys) - 1 else (0, 0))
+
+            key_lbl = ttk.Label(row, text=key, style="Card.TLabel",
+                                font=("Segoe UI", 10, "bold"),
+                                foreground=self.colors["accent"])
+            key_lbl.pack(side=tk.LEFT, padx=(0, 14))
+
+            desc_lbl = ttk.Label(row, text=desc, style="Card.TLabel",
+                                 font=("Segoe UI", 10),
+                                 anchor="w", justify=tk.LEFT)
+            desc_lbl.pack(side=tk.LEFT)
+
+        btn_row = ttk.Frame(content, style="Card.TFrame")
+        btn_row.pack(pady=(20, 0))
+
+        ttk.Button(btn_row, text="Close", style="Primary.TButton",
+                   command=dialog.destroy).pack()
+
+        dialog.update_idletasks()
+        w = dialog.winfo_reqwidth()
+        h = dialog.winfo_reqheight()
+        px = self.root.winfo_rootx() + (self.root.winfo_width() - w) // 2
+        py = self.root.winfo_rooty() + (self.root.winfo_height() - h) // 2
+        dialog.geometry(f"+{px}+{py}")
 
     def browse_workspace(self):
         dir_path = filedialog.askdirectory(initialdir=self.workspace_dir.get(), title="Select Workspace Folder")
@@ -630,6 +701,12 @@ class WADForgeApp:
         self.log(f"Workspace reset to executable directory default.", "info")
         self.refresh_all()
 
+    def clear_quickload(self):
+        self.last_wad_path.set("")
+        backend.save_settings(self.workspace_dir.get(), self.export_format.get(), last_wad_path="")
+        self.wad_quickload_btn.config(state="disabled")
+        self.log("Quick WAD Loading path cleared.", "info")
+
     def browse_wad(self):
         file_path = filedialog.askopenfilename(
             initialdir=self.workspace_dir.get(),
@@ -638,6 +715,7 @@ class WADForgeApp:
         )
         if file_path:
             self.target_wad_path.set(file_path)
+            self._save_last_wad_path(file_path)
             self.refresh_wad()
 
     def create_new_wad(self):
@@ -649,6 +727,7 @@ class WADForgeApp:
         )
         if file_path:
             self.target_wad_path.set(file_path)
+            self._save_last_wad_path(file_path)
             magic_bytes = self.wad_format.get().encode('ascii')
             wad = backend.WadFile(magic_bytes)
             try:
@@ -676,6 +755,21 @@ class WADForgeApp:
         self.canvas_image_id = None
         self.refresh_wad()
         self.log("WAD file unloaded.", "info")
+
+    def _save_last_wad_path(self, path):
+        self.last_wad_path.set(path)
+        backend.save_settings(self.workspace_dir.get(), self.export_format.get(), last_wad_path=path)
+        self.wad_quickload_btn.config(state="normal")
+
+    def quick_load_wad(self):
+        path = self.last_wad_path.get()
+        if not path:
+            return
+        if not os.path.exists(path):
+            messagebox.showwarning("Quick Load", f"Last WAD not found:\n{path}", parent=self.root)
+            return
+        self.target_wad_path.set(path)
+        self.refresh_wad()
 
     def on_format_changed(self, event=None):
         target = self.target_wad_path.get()
@@ -831,11 +925,11 @@ class WADForgeApp:
         
         target = self.target_wad_path.get()
         if not target:
-            self.wad_lbl.config(text="No WAD Loaded")
+            self.wad_title.config(text="Target WAD Textures — No WAD Loaded")
             return
             
         if not os.path.exists(target):
-            self.wad_lbl.config(text="File Not Found")
+            self.wad_title.config(text="Target WAD Textures — File Not Found")
             return
             
         self.log(f"Reading target WAD file: {os.path.basename(target)}", "info")
@@ -843,12 +937,12 @@ class WADForgeApp:
             loaded_format, entries_list = backend.read_wad_contents(target)
             
             self.wad_format.set(loaded_format)
-            self.wad_lbl.config(text=f"{loaded_format} loaded ({len(entries_list)} textures)")
+            self.wad_title.config(text=f"Target WAD Textures — {loaded_format} loaded ({len(entries_list)} textures)")
             self.wad_entries = entries_list
             self.filter_wad()
                 
         except Exception as e:
-            self.wad_lbl.config(text="Error Reading File")
+            self.wad_title.config(text="Target WAD Textures — Error Reading File")
             self.log(f"Error loading target WAD: {str(e)}", "error")
 
     def filter_wad(self):
@@ -917,7 +1011,6 @@ class WADForgeApp:
             self._pack_btn(self.op_btn_delete)
             self.op_btn_export.config(text="Export Texture")
             self._pack_btn(self.op_btn_export)
-            self.op_btn_replace.config(text="Replace Texture")
             self._pack_btn(self.op_btn_replace)
         elif source == "wad_bulk":
             self.source_context_label.config(

@@ -9,7 +9,8 @@ Texture packer & WAD editor for Quake 1 (WAD2) and GoldSrc/HL (WAD3).
 - **Export** individual or batch textures from a WAD to images (BMP or PNG, configurable default)
 - **Replace** a texture inside a WAD in-place with dimension validation and confirmation prompt
 - **Rename / Delete** textures — workspace deletions move files to the Recycle Bin; WAD texture deletions are permanent and require confirmation
-- **Keyboard shortcuts** — F5 to refresh all panels, Delete key for quick texture removal (when not focused on a text field)
+- **Keyboard shortcuts** — F5 to refresh all panels, Delete key for quick texture removal (when not focused on a text field); ⌨ Hotkeys button for full reference
+- **⚡ Quick Load** — one-click reload of the last WAD you worked on; automatically remembers your path
 - **Convert** between WAD2 and WAD3 formats (button in header bar)
 - **Texture preview** with zoom (Ctrl+Wheel), 1:1 toggle, clickable Fit, checkerboard alpha grid, and pixel coordinate info
 - **Search / filter** workspace images **and WAD textures** by name in real-time
@@ -51,9 +52,11 @@ On first launch, `config.json` is created automatically. See `templateconfig.jso
 3. Choose the **WAD Format** (WAD2 for Quake 1, WAD3 for Half-Life).
 4. Select images in the workspace panel and click **Pack Selected Textures** to build them into the WAD.
 5. Browse textures in the **WAD panel** — use the filter bar to search, export, replace, rename, or delete as needed.
-6. Use **↔ Convert** in the header bar to swap between WAD2 / WAD3 architecture.
-7. Click **⚙ Settings** to change default export format or restore workspace defaults.
-8. Click **☰ Console** to toggle the log panel.
+6. Click **⚡ Quick Load** next to Clear to instantly reopen your last WAD.
+7. Use **↔ Convert** in the header bar to swap between WAD2 / WAD3 architecture.
+8. Click **⌨ Hotkeys** to see all keyboard shortcuts.
+9. Click **⚙ Settings** to change default export format, restore workspace defaults, or clear the quick-load path.
+10. Click **☰ Console** to toggle the log panel.
 
 For full documentation see [Documentation.md](Documentation.md).
 

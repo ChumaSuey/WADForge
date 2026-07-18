@@ -1,4 +1,5 @@
 {
     "workspace_dir": ".",
-    "export_format": "bmp"
+    "export_format": "bmp",
+    "last_wad_path": ""
 }
