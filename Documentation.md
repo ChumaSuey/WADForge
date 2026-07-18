@@ -12,12 +12,13 @@ WADForge is a GUI tool for managing texture archives for GoldSrc (Half-Life) and
 
 - Python 3.9 or newer
 - Pillow (`pip install Pillow`)
+- send2trash (`pip install send2trash`)
 - tkinter (included with Python on Windows; `python3-tk` on Linux)
 
 ### Running
 
 ```bash
-pip install Pillow
+pip install Pillow send2trash
 python main.py
 ```
 
@@ -179,10 +180,11 @@ Select multiple WAD textures and click **Export Textures**. Choose a destination
 
 ## Renaming / Deleting
 
-- **Workspace side**: Rename and Delete operate on physical files on disk.
-- **WAD side**: Rename and Delete operate on texture entries inside the loaded WAD archive.
+- **Workspace side**: Rename and Delete operate on physical files on disk. Deleted files are **moved to the Recycle Bin** rather than permanently erased.
+- **WAD side**: Rename and Delete operate on texture entries inside the loaded WAD archive. **WAD deletions are permanent** — confirmation dialogs make this clear.
 - All destructive operations show a confirmation dialog.
 - Button labels update dynamically to reflect what they act on ("Delete from Disk" vs "Delete from WAD").
+- **Delete key** triggers deletion for the currently selected texture (skipped when focus is in a text entry field).
 
 ---
 
@@ -272,6 +274,8 @@ If the file is missing or corrupted, sensible defaults are used and the app runs
 
 - **Hover over any action button** to see a tooltip explaining what it does.
 - **Ctrl + Mouse Wheel** zooms the preview canvas in/out.
+- **F5** refreshes all panels (workspace, WAD contents, and preview).
+- **Delete key** deletes the currently selected texture/entry (not when focused on a text field).
 - **Click the Fit button** in the zoom bar to re-fit the texture to the canvas at any time.
 - **Double-click** a workspace image to preview it.
 - The **status column** warns you about naming conflicts, truncation, or resolution issues before packing.

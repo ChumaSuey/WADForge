@@ -11,6 +11,7 @@ import json
 import hashlib
 import re
 from PIL import Image
+from send2trash import send2trash
 
 CONFIG_FILE = "config.json"
 
@@ -389,7 +390,7 @@ def delete_workspace_files(folder, filenames):
         fpath = os.path.join(folder, fname)
         try:
             if os.path.exists(fpath):
-                os.remove(fpath)
+                send2trash(fpath)
                 success_count += 1
         except Exception as e:
             errors.append((fname, str(e)))

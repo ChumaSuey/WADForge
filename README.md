@@ -8,7 +8,8 @@ Texture packer & WAD editor for Quake 1 (WAD2) and GoldSrc/HL (WAD3).
 - **Pack textures** from a workspace folder into a WAD, with MipTex mipmap compilation
 - **Export** individual or batch textures from a WAD to images (BMP or PNG, configurable default)
 - **Replace** a texture inside a WAD in-place with dimension validation and confirmation prompt
-- **Rename / Delete** textures on disk (workspace) or inside the WAD, with context-aware button labels
+- **Rename / Delete** textures — workspace deletions move files to the Recycle Bin; WAD texture deletions are permanent and require confirmation
+- **Keyboard shortcuts** — F5 to refresh all panels, Delete key for quick texture removal (when not focused on a text field)
 - **Convert** between WAD2 and WAD3 formats (button in header bar)
 - **Texture preview** with zoom (Ctrl+Wheel), 1:1 toggle, clickable Fit, checkerboard alpha grid, and pixel coordinate info
 - **Search / filter** workspace images **and WAD textures** by name in real-time
@@ -26,12 +27,13 @@ Texture packer & WAD editor for Quake 1 (WAD2) and GoldSrc/HL (WAD3).
 
 - **Python 3.9+**
 - **Pillow (PIL)** — `pip install Pillow`
+- **send2trash** — `pip install send2trash` (safe workspace deletion)
 - **tkinter** — bundled with standard Python on Windows; on Linux install `python3-tk`
 
 ## Quick Start
 
 ```bash
-pip install Pillow
+pip install Pillow send2trash
 python main.py
 ```
 

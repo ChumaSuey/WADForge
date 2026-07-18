@@ -222,8 +222,8 @@ class WADForgeApp:
         ws_label = ttk.Label(paths_card, text="Workspace Folder:", style="Card.TLabel")
         ws_label.grid(row=0, column=0, padx=10, pady=8, sticky="w")
         
-        ws_entry = ttk.Entry(paths_card, textvariable=self.workspace_dir, width=80)
-        ws_entry.grid(row=0, column=1, padx=5, pady=8, sticky="ew")
+        self.ws_entry = ttk.Entry(paths_card, textvariable=self.workspace_dir, width=80)
+        self.ws_entry.grid(row=0, column=1, padx=5, pady=8, sticky="ew")
         
         ws_btn_frame = ttk.Frame(paths_card, style="Card.TFrame")
         ws_btn_frame.grid(row=0, column=2, padx=10, pady=8, sticky="ew")
@@ -235,8 +235,8 @@ class WADForgeApp:
         wad_label = ttk.Label(paths_card, text="Target WAD File:", style="Card.TLabel")
         wad_label.grid(row=1, column=0, padx=10, pady=8, sticky="w")
         
-        wad_entry = ttk.Entry(paths_card, textvariable=self.target_wad_path, width=80)
-        wad_entry.grid(row=1, column=1, padx=5, pady=8, sticky="ew")
+        self.wad_path_entry = ttk.Entry(paths_card, textvariable=self.target_wad_path, width=80)
+        self.wad_path_entry.grid(row=1, column=1, padx=5, pady=8, sticky="ew")
         
         wad_btn_frame = ttk.Frame(paths_card)
         wad_btn_frame.configure(style="Card.TFrame")
@@ -289,8 +289,8 @@ class WADForgeApp:
         search_label = ttk.Label(image_header, text="Filter:", style="Card.TLabel")
         search_label.pack(side=tk.RIGHT, padx=5)
         
-        search_entry = ttk.Entry(image_header, textvariable=self.search_query, width=20)
-        search_entry.pack(side=tk.RIGHT, padx=5)
+        self.search_entry = ttk.Entry(image_header, textvariable=self.search_query, width=20)
+        self.search_entry.pack(side=tk.RIGHT, padx=5)
         self.search_query.trace_add("write", lambda *args: self.filter_images())
         
         # Image Treeview
@@ -307,7 +307,7 @@ class WADForgeApp:
         self.tree_images.column("filename", width=140)
         self.tree_images.column("texname", width=110)
         self.tree_images.column("res", width=80, anchor="center")
-        self.tree_images.column("format", width=85, anchor="center")
+        self.tree_images.column("format", width=120, anchor="center")
         self.tree_images.column("status", width=240, anchor="center")
         
         image_scroll_y = ttk.Scrollbar(tree_frame_images, orient=tk.VERTICAL, command=self.tree_images.yview)
@@ -345,8 +345,8 @@ class WADForgeApp:
         wad_search_label = ttk.Label(wad_header, text="Filter:", style="Card.TLabel")
         wad_search_label.pack(side=tk.RIGHT, padx=5)
 
-        wad_search_entry = ttk.Entry(wad_header, textvariable=self.wad_search_query, width=18)
-        wad_search_entry.pack(side=tk.RIGHT, padx=5)
+        self.wad_search_entry = ttk.Entry(wad_header, textvariable=self.wad_search_query, width=18)
+        self.wad_search_entry.pack(side=tk.RIGHT, padx=5)
         self.wad_search_query.trace_add("write", lambda *args: self.filter_wad())
 
         self.wad_lbl = ttk.Label(wad_header, text="No WAD Loaded", style="Card.TLabel")
@@ -397,6 +397,8 @@ class WADForgeApp:
         self.preview_canvas.bind("<Control-MouseWheel>", self._on_mousewheel_zoom)
         self.preview_canvas.bind("<Control-Button-4>", lambda e: self.zoom_in())
         self.preview_canvas.bind("<Control-Button-5>", lambda e: self.zoom_out())
+        self.root.bind("<F5>", lambda e: self.refresh_all())
+        self.root.bind("<Delete>", self._on_delete_key)
         
         self._canvas_placeholder = self.preview_canvas.create_text(
             200, 100, text="Select an image\nto preview",
@@ -1287,12 +1289,18 @@ class WADForgeApp:
                     self.log(f"Failed to rename WAD texture: {str(e)}", "error")
                     messagebox.showerror("Error", f"Failed to rename WAD texture:\n{str(e)}", parent=self.root)
 
+    def _on_delete_key(self, event):
+        focused = self.root.focus_get()
+        if focused in (self.ws_entry, self.wad_path_entry, self.search_entry, self.wad_search_entry):
+            return
+        self.on_op_delete()
+
     def on_op_delete(self):
         source = self.current_preview_source
         
         if source == "workspace":
             name = self.current_preview_name
-            if messagebox.askyesno("Delete File", f"Are you sure you want to delete '{name}' from the workspace?", parent=self.root):
+            if messagebox.askyesno("Delete File", f"Delete '{name}' from the workspace?\n\nIt will be moved to the Recycle Bin.", parent=self.root):
                 success, errors = backend.delete_workspace_files(self.workspace_dir.get(), [name])
                 if errors:
                     for fname, err in errors:
@@ -1311,7 +1319,7 @@ class WADForgeApp:
                     filenames.append(vals[0])
             if not filenames:
                 return
-            if messagebox.askyesno("Delete Files", f"Are you sure you want to delete these {len(filenames)} files from the workspace?", parent=self.root):
+            if messagebox.askyesno("Delete Files", f"Delete these {len(filenames)} files from the workspace?\n\nThey will be moved to the Recycle Bin.", parent=self.root):
                 success, errors = backend.delete_workspace_files(self.workspace_dir.get(), filenames)
                 for fname, err in errors:
                     self.log(f"Failed to delete '{fname}': {err}", "error")
@@ -1323,7 +1331,7 @@ class WADForgeApp:
             target_path = self.target_wad_path.get()
             if not target_path or not os.path.exists(target_path):
                 return
-            if messagebox.askyesno("Delete Texture", f"Are you sure you want to delete texture '{name}' from the WAD?", parent=self.root):
+            if messagebox.askyesno("Delete Texture", f"Delete texture '{name}' from the WAD?\n\nThis action is permanent and cannot be undone.", parent=self.root):
                 try:
                     count = backend.delete_wad_entries(target_path, [name])
                     if count > 0:
@@ -1347,7 +1355,7 @@ class WADForgeApp:
             target_path = self.target_wad_path.get()
             if not target_path or not os.path.exists(target_path):
                 return
-            if messagebox.askyesno("Delete Textures", f"Are you sure you want to delete these {len(names)} textures from the WAD?", parent=self.root):
+            if messagebox.askyesno("Delete Textures", f"Delete these {len(names)} textures from the WAD?\n\nThis action is permanent and cannot be undone.", parent=self.root):
                 try:
                     count = backend.delete_wad_entries(target_path, names)
                     self.log(f"Deleted {count} of {len(names)} textures from WAD", "success")
