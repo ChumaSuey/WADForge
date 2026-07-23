@@ -2,6 +2,10 @@
 
 Texture packer & WAD editor for Quake 1 (WAD2) and GoldSrc/HL (WAD3).
 
+Made by Chuma ( collab with Nepta... Co-credit my dev team Absolute Quantum AQ ) 
+
+Deepseek V4 Pro AI was used as an assistant in programming and documentation, work manually verified.
+
 ## Features
 
 - **Load, create, and inspect** WAD files — view all textures, resolutions, and byte sizes
